@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Infinite Tic-Tac-Toe</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,0,0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root[data-theme="light"] {
+            --bg-color: #f6f8fd;
+            --text-color: #2c3e50;
+            --board-bg: rgba(255, 255, 255, 0.9);
+            --cell-bg: white;
+            --cell-shadow: rgba(0, 0, 0, 0.05);
+            --x-color: #3498db;
+            --o-color: #e74c3c;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --board-bg: rgba(30, 30, 30, 0.9);
+            --cell-bg: #2d2d2d;
+            --cell-shadow: rgba(0, 0, 0, 0.2);
+            --x-color: #60a5fa;
+            --o-color: #f87171;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg-color);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: var(--text-color);
+            touch-action: manipulation;
+        }
+
+        #theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: var(--board-bg);
+            cursor: pointer;
+            box-shadow: 0 4px 15px var(--cell-shadow);
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #theme-toggle .material-symbols-rounded {
+            font-size: 28px;
+            transition: transform 0.3s ease;
+        }
+
+        @media (hover: hover) {
+            #theme-toggle:hover .material-symbols-rounded {
+                transform: rotate(45deg);
+            }
+        }
+
+        #status {
+            text-align: center;
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            margin-bottom: 2rem;
+            font-weight: 500;
+            letter-spacing: 2px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(100px, 150px));
+            gap: 12px;
+            padding: 20px;
+            background: var(--board-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px var(--cell-shadow);
+            touch-action: manipulation;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            border: none;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(48px, 10vw, 72px);
+            cursor: pointer;
+            background: var(--cell-bg);
+            box-shadow: 0 4px 15px var(--cell-shadow);
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+            user-select: none;
+        }
+
+        @media (hover: hover) {
+            .cell:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px var(--cell-shadow);
+            }
+        }
+
+        .cell.x {
+            color: var(--x-color);
+        }
+
+        .cell.o {
+            color: var(--o-color);
+        }
+
+        @keyframes markPlace {
+            0% { opacity: 0; transform: scale(0.5); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .mark-animation {
+            animation: markPlace 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .game-disabled {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        @media (max-width: 768px) {
+            .board {
+                grid-template-columns: repeat(3, minmax(90px, 120px));
+                gap: 8px;
+                padding: 15px;
+            }
+
+            #theme-toggle {
+                top: 10px;
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button id="theme-toggle">
+        <span class="material-symbols-rounded">light_mode</span>
+    </button>
+    <div id="status"></div>
+    <div class="board" id="board"></div>
+
+<script>
+class InfiniteTicTacToe {
+    constructor() {
+        this.board = document.getElementById('board');
+        this.status = document.getElementById('status');
+        this.currentPlayer = 'X';
+        this.gameActive = true;
+        this.playerMoves = {
+            'X': [],
+            'O': []
+        };
+        this.loadTheme();
+        this.init();
+        this.initThemeToggle();
+    }
+
+    init() {
+        for (let i = 0; i < 9; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.index = i;
+            
+            // Add both click and touch handlers
+            const handleInteraction = (e) => {
+                e.preventDefault();
+                if (e.type === 'mousedown' && e.button !== 0) return;
+                this.makeMove(i);
+            };
+
+            cell.addEventListener('mousedown', handleInteraction);
+            cell.addEventListener('touchstart', handleInteraction, { passive: false });
+            
+            this.board.appendChild(cell);
+        }
+        this.updateStatus();
+    }
+
+    loadTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        const toggleIcon = document.querySelector('.material-symbols-rounded');
+        if (toggleIcon) {
+            toggleIcon.textContent = savedTheme === 'dark' ? 'dark_mode' : 'light_mode';
+        }
+    }
+
+    initThemeToggle() {
+        const toggle = document.getElementById('theme-toggle');
+        const toggleIcon = toggle.querySelector('.material-symbols-rounded');
+        
+        const handleThemeToggle = (e) => {
+            e.preventDefault();
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            toggleIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+            localStorage.setItem('theme', newTheme);
+        };
+
+        toggle.addEventListener('mousedown', handleThemeToggle);
+        toggle.addEventListener('touchstart', handleThemeToggle, { passive: false });
+    }
+
+    makeMove(index) {
+        if (!this.gameActive) return;
+        
+        const cell = this.board.children[index];
+        if (cell.textContent) return;
+
+        this.playerMoves[this.currentPlayer].push(index);
+        
+        cell.textContent = this.currentPlayer;
+        cell.classList.add(this.currentPlayer.toLowerCase(), 'mark-animation');
+
+        if (this.playerMoves[this.currentPlayer].length > 3) {
+            const oldestMove = this.playerMoves[this.currentPlayer].shift();
+            const oldCell = this.board.children[oldestMove];
+            oldCell.textContent = '';
+            oldCell.classList.remove('x', 'o', 'mark-animation');
+        }
+
+        if (this.checkWin(this.playerMoves[this.currentPlayer])) {
+            this.status.textContent = `${this.currentPlayer} Wins!`;
+            this.gameActive = false;
+            this.board.classList.add('game-disabled');
+            this.resetGame();
+            return;
+        }
+
+        this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+        this.updateStatus();
+    }
+
+    checkWin(moves) {
+        const winPatterns = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+        return winPatterns.some(pattern => 
+            pattern.every(pos => moves.includes(pos))
+        );
+    }
+
+    updateStatus() {
+        this.status.textContent = `${this.currentPlayer}'s Turn`;
+    }
+
+    resetGame() {
+        setTimeout(() => {
+            this.playerMoves = { 'X': [], 'O': [] };
+            this.currentPlayer = 'X';
+            this.gameActive = true;
+            Array.from(this.board.children).forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o', 'mark-animation');
+            });
+            this.board.classList.remove('game-disabled');
+            this.updateStatus();
+        }, 1500);
+    }
+}
+
+new InfiniteTicTacToe();
+</script>
+</body>
+</html>
