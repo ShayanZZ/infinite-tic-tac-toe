@@ -6,6 +6,43 @@
     <title>Infinite Tic-Tac-Toe</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,0,0">
     <style>
+        /* Startup fade-in animation for everything */
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Slower, subtler winning tile animation */
+        @keyframes winningTile {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+            100% { transform: scale(1); }
+        }
+
+        /* Score number roll */
+        @keyframes numberRoll {
+            0% { transform: translateY(-100%); opacity: 0; }
+            20% { transform: translateY(-80%); opacity: 0.2; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes markPlace {
+            0% { 
+                opacity: 0; 
+                transform: scale(0.5); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: scale(1); 
+            }
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -22,6 +59,13 @@
             --cell-shadow: rgba(0, 0, 0, 0.05);
             --x-color: #3498db;
             --o-color: #e74c3c;
+            --menu-bg: rgba(255, 255, 255, 0.95);
+            --button-bg: #f8fafc;
+            --button-hover: #f1f5f9;
+            --button-active: #e2e8f0;
+            --slider-bg: #e2e8f0;
+            --slider-fill: #64748b;
+            --win-highlight: rgba(46, 213, 115, 0.2);
         }
 
         :root[data-theme="dark"] {
@@ -32,14 +76,22 @@
             --cell-shadow: rgba(0, 0, 0, 0.2);
             --x-color: #60a5fa;
             --o-color: #f87171;
+            --menu-bg: rgba(30, 30, 30, 0.95);
+            --button-bg: #2d2d2d;
+            --button-hover: #374151;
+            --button-active: #4b5563;
+            --slider-bg: #4b5563;
+            --slider-fill: #9ca3af;
+            --win-highlight: rgba(46, 213, 115, 0.15);
         }
 
         body {
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
             background: var(--bg-color);
             font-family: 'Segoe UI', system-ui, sans-serif;
             color: var(--text-color);
@@ -61,25 +113,239 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 999;
+            transition: all 0.3s ease;
         }
 
-        #theme-toggle .material-symbols-rounded {
+        #theme-toggle:hover {
+            transform: rotate(180deg);
+        }
+
+        #theme-toggle:active {
+            transform: scale(0.95) rotate(180deg);
+        }
+
+        .material-symbols-rounded {
             font-size: 28px;
             transition: transform 0.3s ease;
         }
 
-        @media (hover: hover) {
-            #theme-toggle:hover .material-symbols-rounded {
-                transform: rotate(45deg);
-            }
+        .game-setup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 30px;
+            background: var(--menu-bg);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            width: 90%;
+            max-width: 400px;
+            z-index: 100;
+        }
+
+        .main-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .setup-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .setup-row {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #aiDifficultyRow {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+
+        #aiDifficultyRow.visible {
+            max-height: 200px;
+            opacity: 1;
+        }
+
+        .setup-row label {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .option-button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            background: var(--button-bg);
+            color: var(--text-color);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 100px;
+        }
+
+        .option-button:hover {
+            background: var(--button-hover);
+            transform: translateY(-2px);
+        }
+
+        .option-button:active {
+            background: var(--button-active);
+            transform: translateY(0);
+        }
+
+        .option-button.selected {
+            background: var(--x-color);
+            color: white;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slider-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slider-value {
+            font-weight: 600;
+            min-width: 60px;
+            text-align: right;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--slider-bg);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--x-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        #startBtn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 12px;
+            background: var(--x-color);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 10px;
+        }
+
+        #startBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        #startBtn:active {
+            transform: translateY(0);
+        }
+
+        #timer {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .scoreboard-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: var(--board-bg);
+            padding: 15px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px var(--cell-shadow);
+            margin-bottom: 10px;
+            animation: fadeInUp 0.8s ease both;
+        }
+
+        #scoreboard {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            font-size: 2.5rem;
+            font-weight: 600;
+        }
+
+        .score-divider {
+            font-size: 2.5rem;
+            font-weight: 300;
+            color: var(--text-color);
+        }
+
+        .score-x {
+            color: var(--x-color);
+            min-width: 40px;
+            text-align: right;
+            position: relative;
+        }
+
+        .score-o {
+            color: var(--o-color);
+            min-width: 40px;
+            text-align: left;
+            position: relative;
+        }
+
+        .score-animation {
+            animation: numberRoll 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
 
         #status {
-            text-align: center;
-            font-size: clamp(1.5rem, 4vw, 2rem);
-            margin-bottom: 2rem;
+            font-size: 1.8rem;
             font-weight: 500;
-            letter-spacing: 2px;
+            margin-bottom: 20px;
+            transition: color 0.3s ease;
         }
 
         .board {
@@ -90,7 +356,7 @@
             background: var(--board-bg);
             border-radius: 20px;
             box-shadow: 0 20px 60px var(--cell-shadow);
-            touch-action: manipulation;
+            animation: fadeInUp 1s ease both;
         }
 
         .cell {
@@ -105,15 +371,13 @@
             background: var(--cell-bg);
             box-shadow: 0 4px 15px var(--cell-shadow);
             transition: all 0.2s ease;
-            touch-action: manipulation;
             user-select: none;
+            position: relative;
         }
 
-        @media (hover: hover) {
-            .cell:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 6px 20px var(--cell-shadow);
-            }
+        .cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--cell-shadow);
         }
 
         .cell.x {
@@ -124,9 +388,17 @@
             color: var(--o-color);
         }
 
-        @keyframes markPlace {
-            0% { opacity: 0; transform: scale(0.5); }
-            100% { opacity: 1; transform: scale(1); }
+        .cell.dim.x {
+            color: color-mix(in srgb, var(--x-color) 30%, transparent);
+        }
+
+        .cell.dim.o {
+            color: color-mix(in srgb, var(--o-color) 30%, transparent);
+        }
+
+        .cell.winning {
+            animation: winningTile 2s ease-in-out infinite;
+            background: var(--win-highlight);
         }
 
         .mark-animation {
@@ -136,6 +408,70 @@
         .game-disabled {
             pointer-events: none;
             opacity: 0.7;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.visible {
+            opacity: 1;
+        }
+
+        .overlay-content {
+            background: var(--menu-bg);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .overlay.visible .overlay-content {
+            transform: translateY(0);
+        }
+
+        .overlay h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: var(--text-color);
+        }
+
+        .overlay-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        .overlay-button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--x-color);
+            color: white;
+        }
+
+        .overlay-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--cell-shadow);
         }
 
         @media (max-width: 768px) {
@@ -149,39 +485,250 @@
                 top: 10px;
                 right: 10px;
             }
+
+            .game-setup {
+                padding: 20px;
+            }
+
+            #scoreboard {
+                font-size: 2rem;
+                gap: 20px;
+            }
+
+            #status {
+                font-size: 1.4rem;
+            }
         }
     </style>
+</head>
 </head>
 <body>
     <button id="theme-toggle">
         <span class="material-symbols-rounded">light_mode</span>
     </button>
-    <div id="status"></div>
-    <div class="board" id="board"></div>
+
+    <div class="game-setup" id="game-setup">
+        <h1 class="setup-title">Infinite Tic-Tac-Toe</h1>
+        
+        <div class="setup-row">
+            <label>Game Mode</label>
+            <div class="button-group">
+                <button class="option-button selected" data-mode="ai">VS AI</button>
+                <button class="option-button" data-mode="local">2 Players</button>
+            </div>
+        </div>
+
+        <div class="setup-row visible" id="aiDifficultyRow">
+            <label>AI Difficulty</label>
+            <div class="button-group">
+                <button class="option-button selected" data-difficulty="easy">Easy</button>
+                <button class="option-button" data-difficulty="medium">Medium</button>
+                <button class="option-button" data-difficulty="hard">Hard</button>
+            </div>
+        </div>
+
+        <div class="setup-row">
+            <div class="slider-container">
+                <div class="slider-info">
+                    <label>Score to Win</label>
+                    <span class="slider-value" id="roundsVal">∞</span>
+                </div>
+                <input type="range" id="roundsSlider" min="0" max="10" value="0" step="1">
+            </div>
+        </div>
+
+        <div class="setup-row">
+            <div class="slider-container">
+                <div class="slider-info">
+                    <label>Time per Turn</label>
+                    <span class="slider-value" id="timeVal">Off</span>
+                </div>
+                <input type="range" id="timeSlider" min="0" max="10" value="0" step="1">
+            </div>
+        </div>
+
+        <div class="setup-row">
+            <label>Highlight Next Removal</label>
+            <div class="button-group">
+                <button class="option-button selected" data-highlight="true">On</button>
+                <button class="option-button" data-highlight="false">Off</button>
+            </div>
+        </div>
+
+        <button id="startBtn">Start Game</button>
+    </div>
+
+    <div class="main-container" id="mainContainer">
+        <div class="scoreboard-container">
+            <div id="scoreboard">
+                <span class="score-x">0</span>
+                <span class="score-divider">|</span>
+                <span class="score-o">0</span>
+            </div>
+        </div>
+        <div id="timer"></div>
+        <div id="status"></div>
+        <div class="board" id="board"></div>
+    </div>
+
+    <div class="overlay" id="gameEndOverlay">
+        <div class="overlay-content">
+            <h2 id="winnerText"></h2>
+            <div class="overlay-buttons">
+                <button class="overlay-button" id="playAgainBtn">Play Again</button>
+                <button class="overlay-button" id="mainMenuBtn">Main Menu</button>
+            </div>
+        </div>
+    </div>
 
 <script>
 class InfiniteTicTacToe {
     constructor() {
-        this.board = document.getElementById('board');
-        this.status = document.getElementById('status');
+        this.setupDiv = document.getElementById('game-setup');
+        this.mainContainer = document.getElementById('mainContainer');
+        this.boardElem = document.getElementById('board');
+        this.statusElem = document.getElementById('status');
+        this.scoreboardElem = document.getElementById('scoreboard');
+        this.timerElem = document.getElementById('timer');
+        this.gameEndOverlay = document.getElementById('gameEndOverlay');
+        this.winnerText = document.getElementById('winnerText');
+        this.aiDifficultyRow = document.getElementById('aiDifficultyRow');
+        
+        this.themeToggle = document.getElementById('theme-toggle');
+        this.themeIcon = this.themeToggle.querySelector('.material-symbols-rounded');
+        
+        this.gameMode = 'ai';
+        this.aiDifficulty = 'easy';
+        this.scoreLimit = 0;
+        this.turnTimeLimit = 0;
+        this.highlightRemoval = true;
+
         this.currentPlayer = 'X';
         this.gameActive = true;
-        this.playerMoves = {
-            'X': [],
-            'O': []
-        };
+        this.playerMoves = { 'X': [], 'O': [] };
+        this.scores = { 'X': 0, 'O': 0 };
+        this.turnTimer = null;
+        this.timeLeft = 0;
+        this.countdownInterval = null;
+        this.nextStarter = 'X';
+        this.winningCombination = null;
+
+        this.aiDifficultyRow.classList.add('visible');
+
         this.loadTheme();
-        this.init();
         this.initThemeToggle();
+        this.initSetup();
+        this.initGameEndButtons();
     }
 
-    init() {
+    initSetup() {
+        const modeButtons = document.querySelectorAll('[data-mode]');
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                modeButtons.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                this.gameMode = btn.dataset.mode;
+                
+                if (this.gameMode === 'ai') {
+                    this.aiDifficultyRow.classList.add('visible');
+                } else {
+                    this.aiDifficultyRow.classList.remove('visible');
+                }
+            });
+        });
+
+        const difficultyButtons = document.querySelectorAll('[data-difficulty]');
+        difficultyButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                difficultyButtons.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                this.aiDifficulty = btn.dataset.difficulty;
+            });
+        });
+
+        const highlightButtons = document.querySelectorAll('[data-highlight]');
+        highlightButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                highlightButtons.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                this.highlightRemoval = btn.dataset.highlight === 'true';
+            });
+        });
+
+        const roundsSlider = document.getElementById('roundsSlider');
+        const roundsVal = document.getElementById('roundsVal');
+        roundsSlider.addEventListener('input', () => {
+            const val = Number(roundsSlider.value);
+            this.scoreLimit = val;
+            roundsVal.textContent = val === 0 ? '∞' : val;
+        });
+
+        const timeSlider = document.getElementById('timeSlider');
+        const timeVal = document.getElementById('timeVal');
+        timeSlider.addEventListener('input', () => {
+            const val = Number(timeSlider.value);
+            this.turnTimeLimit = val;
+            timeVal.textContent = val === 0 ? 'Off' : `${val}s`;
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            this.setupDiv.style.display = 'none';
+            this.mainContainer.style.display = 'flex';
+            this.initBoard();
+            this.initGame();
+            this.renderScores();
+            this.updateStatus();
+        });
+    }
+    loadTheme() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        if (this.themeIcon) {
+            this.themeIcon.textContent = savedTheme === 'dark' ? 'dark_mode' : 'light_mode';
+        }
+    }
+
+    initThemeToggle() {
+        this.themeToggle.addEventListener('click', () => {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            const newTheme = isDark ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            this.themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+            localStorage.setItem('theme', newTheme);
+        });
+    }
+
+    initGameEndButtons() {
+        document.getElementById('playAgainBtn').addEventListener('click', () => {
+            this.gameEndOverlay.classList.remove('visible');
+            setTimeout(() => {
+                this.gameEndOverlay.style.display = 'none';
+                this.scores = { 'X': 0, 'O': 0 };
+                this.renderScores();
+                this.initBoard();
+                this.initGame();
+            }, 300);
+        });
+
+        document.getElementById('mainMenuBtn').addEventListener('click', () => {
+            this.gameEndOverlay.classList.remove('visible');
+            setTimeout(() => {
+                this.gameEndOverlay.style.display = 'none';
+                this.mainContainer.style.display = 'none';
+                this.setupDiv.style.display = 'flex';
+                this.scores = { 'X': 0, 'O': 0 };
+            }, 300);
+        });
+    }
+
+    initBoard() {
+        this.boardElem.innerHTML = '';
         for (let i = 0; i < 9; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.dataset.index = i;
             
-            // Add both click and touch handlers
             const handleInteraction = (e) => {
                 e.preventDefault();
                 if (e.type === 'mousedown' && e.button !== 0) return;
@@ -191,66 +738,302 @@ class InfiniteTicTacToe {
             cell.addEventListener('mousedown', handleInteraction);
             cell.addEventListener('touchstart', handleInteraction, { passive: false });
             
-            this.board.appendChild(cell);
-        }
-        this.updateStatus();
-    }
-
-    loadTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        const toggleIcon = document.querySelector('.material-symbols-rounded');
-        if (toggleIcon) {
-            toggleIcon.textContent = savedTheme === 'dark' ? 'dark_mode' : 'light_mode';
+            this.boardElem.appendChild(cell);
         }
     }
 
-    initThemeToggle() {
-        const toggle = document.getElementById('theme-toggle');
-        const toggleIcon = toggle.querySelector('.material-symbols-rounded');
+    initGame() {
+        this.playerMoves = { 'X': [], 'O': [] };
+        this.gameActive = true;
+        this.currentPlayer = this.nextStarter;
+        this.nextStarter = this.nextStarter === 'X' ? 'O' : 'X';
+        this.winningCombination = null;
         
-        const handleThemeToggle = (e) => {
-            e.preventDefault();
-            const html = document.documentElement;
-            const isDark = html.getAttribute('data-theme') === 'dark';
-            const newTheme = isDark ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            toggleIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
-            localStorage.setItem('theme', newTheme);
-        };
+        Array.from(this.boardElem.children).forEach(cell => {
+            cell.classList.remove('winning', 'x', 'o', 'dim');
+            cell.textContent = '';
+        });
 
-        toggle.addEventListener('mousedown', handleThemeToggle);
-        toggle.addEventListener('touchstart', handleThemeToggle, { passive: false });
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+        
+        this.updateStatus(); // Add this line to update turn status
+        this.startTurnTimer();
+
+        if (this.gameMode === 'ai' && this.currentPlayer === 'O') {
+            setTimeout(() => this.makeAIMove(), 500);
+        }
     }
 
+    startTurnTimer() {
+        if (this.turnTimeLimit > 0) {
+            this.timeLeft = this.turnTimeLimit;
+            this.updateTimerDisplay();
+            
+            if (this.countdownInterval) {
+                clearInterval(this.countdownInterval);
+            }
+            
+            this.countdownInterval = setInterval(() => {
+                this.timeLeft--;
+                this.updateTimerDisplay();
+                
+                if (this.timeLeft <= 0) {
+                    clearInterval(this.countdownInterval);
+                    this.handleTimeOut();
+                }
+            }, 1000);
+        } else {
+            this.timerElem.textContent = '';
+        }
+    }
+
+    updateTimerDisplay() {
+        this.timerElem.textContent = this.timeLeft > 0 ? this.timeLeft : '';
+    }
+
+    handleTimeOut() {
+        if (!this.gameActive) return;
+        const winner = this.currentPlayer === 'X' ? 'O' : 'X';
+        this.scores[winner]++;
+        this.renderScoresWithAnimation();
+        this.checkMatchEnd(`${winner} Wins! (Time Out)`);
+    }
     makeMove(index) {
         if (!this.gameActive) return;
         
-        const cell = this.board.children[index];
+        const cell = this.boardElem.children[index];
         if (cell.textContent) return;
 
-        this.playerMoves[this.currentPlayer].push(index);
-        
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+        }
+
+        Array.from(this.boardElem.children).forEach(cell => {
+            cell.classList.remove('dim');
+        });
+
         cell.textContent = this.currentPlayer;
         cell.classList.add(this.currentPlayer.toLowerCase(), 'mark-animation');
+        this.playerMoves[this.currentPlayer].push(index);
 
         if (this.playerMoves[this.currentPlayer].length > 3) {
             const oldestMove = this.playerMoves[this.currentPlayer].shift();
-            const oldCell = this.board.children[oldestMove];
+            const oldCell = this.boardElem.children[oldestMove];
             oldCell.textContent = '';
-            oldCell.classList.remove('x', 'o', 'mark-animation');
+            oldCell.classList.remove('x', 'o', 'mark-animation', 'dim');
         }
 
-        if (this.checkWin(this.playerMoves[this.currentPlayer])) {
-            this.status.textContent = `${this.currentPlayer} Wins!`;
-            this.gameActive = false;
-            this.board.classList.add('game-disabled');
-            this.resetGame();
+        const winResult = this.checkWin(this.playerMoves[this.currentPlayer]);
+        if (winResult.hasWon) {
+            this.winningCombination = winResult.combination;
+            this.handleWin();
             return;
         }
 
         this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
         this.updateStatus();
+        this.startTurnTimer();
+        this.updateNextRemoval();
+
+        if (this.gameMode === 'ai' && this.currentPlayer === 'O' && this.gameActive) {
+            setTimeout(() => this.makeAIMove(), 500);
+        }
+    }
+
+    updateNextRemoval() {
+        if (!this.highlightRemoval) return;
+        const nextPlayer = this.currentPlayer;
+        if (this.playerMoves[nextPlayer].length === 3) {
+            const oldestMove = this.playerMoves[nextPlayer][0];
+            const oldCell = this.boardElem.children[oldestMove];
+            oldCell.classList.add('dim', nextPlayer.toLowerCase());
+        }
+    }
+
+    makeAIMove() {
+        if (!this.gameActive) return;
+
+        let move;
+        switch(this.aiDifficulty) {
+            case 'easy':
+                move = Math.random() < 0.7 ? this.getSmartMove(1) : this.getRandomMove();
+                break;
+            case 'medium':
+                if (Math.random() < 0.4) {
+                    move = this.getRandomMove();
+                } else {
+                    move = this.getSmartMove(2);
+                }
+                break;
+            case 'hard':
+                move = this.getSmartMove(3);
+                break;
+        }
+
+        if (move !== null) {
+            this.makeMove(move);
+        }
+    }
+
+    getSmartMove(depth) {
+        const availableMoves = this.getEmptyCells();
+        if (availableMoves.length === 0) return null;
+
+        // First check for winning moves
+        for (const move of availableMoves) {
+            if (this.wouldWin('O', move)) {
+                return move;
+            }
+        }
+
+        // Then check for blocking opponent's winning moves
+        for (const move of availableMoves) {
+            if (this.wouldWin('X', move)) {
+                return move;
+            }
+        }
+
+        // Prevent loops by tracking move history
+        const moveHistory = new Set(this.playerMoves['O'].map(String));
+        let bestMove = availableMoves[0];
+        let bestScore = -Infinity;
+
+        for (const move of availableMoves) {
+            // Skip moves that would create a loop
+            if (moveHistory.has(String(move))) continue;
+
+            const originalState = {
+                'X': [...this.playerMoves['X']],
+                'O': [...this.playerMoves['O']]
+            };
+
+            this.simulateMove('O', move);
+            const score = this.minimax(depth - 1, false, -Infinity, Infinity);
+            this.undoMove('O', originalState['O']);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = move;
+            }
+        }
+
+        // Add randomization to prevent predictable patterns
+        if (bestScore === 0 && Math.random() < 0.3) {
+            return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+        }
+
+        return bestMove;
+    }
+
+    minimax(depth, isMaximizing, alpha, beta) {
+        if (depth === 0) return this.evaluatePosition();
+        if (this.checkWin(this.playerMoves['O']).hasWon) return 10 + depth;
+        if (this.checkWin(this.playerMoves['X']).hasWon) return -10 - depth;
+
+        const availableMoves = this.getEmptyCells();
+        if (availableMoves.length === 0) return 0;
+
+        if (isMaximizing) {
+            let maxScore = -Infinity;
+            for (const move of availableMoves) {
+                const originalState = {
+                    'X': [...this.playerMoves['X']],
+                    'O': [...this.playerMoves['O']]
+                };
+                this.simulateMove('O', move);
+                const score = this.minimax(depth - 1, false, alpha, beta);
+                this.undoMove('O', originalState['O']);
+                maxScore = Math.max(maxScore, score);
+                alpha = Math.max(alpha, score);
+                if (beta <= alpha) break;
+            }
+            return maxScore;
+        } else {
+            let minScore = Infinity;
+            for (const move of availableMoves) {
+                const originalState = {
+                    'X': [...this.playerMoves['X']],
+                    'O': [...this.playerMoves['O']]
+                };
+                this.simulateMove('X', move);
+                const score = this.minimax(depth - 1, true, alpha, beta);
+                this.undoMove('X', originalState['X']);
+                minScore = Math.min(minScore, score);
+                beta = Math.min(beta, score);
+                if (beta <= alpha) break;
+            }
+            return minScore;
+        }
+    }
+    simulateMove(player, move) {
+        this.playerMoves[player].push(move);
+        if (this.playerMoves[player].length > 3) {
+            this.playerMoves[player].shift();
+        }
+    }
+
+    undoMove(player, originalState) {
+        this.playerMoves[player] = [...originalState];
+    }
+
+    wouldWin(player, move) {
+        const moves = [...this.playerMoves[player]];
+        moves.push(move);
+        if (moves.length > 3) moves.shift();
+        return this.checkWin(moves).hasWon;
+    }
+
+    evaluatePosition() {
+        let score = 0;
+        const winPatterns = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        for (const pattern of winPatterns) {
+            const oCount = pattern.filter(pos => this.playerMoves['O'].includes(pos)).length;
+            const xCount = pattern.filter(pos => this.playerMoves['X'].includes(pos)).length;
+
+            if (oCount > 0 && xCount === 0) {
+                score += Math.pow(10, oCount);
+            }
+            if (xCount > 0 && oCount === 0) {
+                score -= Math.pow(10, xCount);
+            }
+        }
+
+        const centerBonus = 5;
+        const cornerBonus = 3;
+        const corners = [0, 2, 6, 8];
+
+        if (this.playerMoves['O'].includes(4)) score += centerBonus;
+        if (this.playerMoves['X'].includes(4)) score -= centerBonus;
+
+        for (const corner of corners) {
+            if (this.playerMoves['O'].includes(corner)) score += cornerBonus;
+            if (this.playerMoves['X'].includes(corner)) score -= cornerBonus;
+        }
+        return score;
+    }
+
+    getRandomMove() {
+        const emptyCells = this.getEmptyCells();
+        if (emptyCells.length === 0) return null;
+        return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    }
+
+    getEmptyCells() {
+        const emptyCells = [];
+        for (let i = 0; i < 9; i++) {
+            if (!this.boardElem.children[i].textContent) {
+                emptyCells.push(i);
+            }
+        }
+        return emptyCells;
     }
 
     checkWin(moves) {
@@ -259,27 +1042,94 @@ class InfiniteTicTacToe {
             [0, 3, 6], [1, 4, 7], [2, 5, 8],
             [0, 4, 8], [2, 4, 6]
         ];
-        return winPatterns.some(pattern => 
-            pattern.every(pos => moves.includes(pos))
-        );
+        for (const pattern of winPatterns) {
+            if (pattern.every(pos => moves.includes(pos))) {
+                return { hasWon: true, combination: pattern };
+            }
+        }
+        return { hasWon: false, combination: null };
+    }
+
+    handleWin() {
+        this.gameActive = false;
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+
+        if (this.winningCombination) {
+            this.winningCombination.forEach(index => {
+                this.boardElem.children[index].classList.add('winning');
+            });
+        }
+
+        setTimeout(() => {
+            this.scores[this.currentPlayer]++;
+            this.renderScoresWithAnimation();
+            
+            if (this.scoreLimit > 0 && this.scores[this.currentPlayer] >= this.scoreLimit) {
+                setTimeout(() => {
+                    this.showGameEnd(`${this.currentPlayer} Wins the Match!`);
+                }, 500);
+            } else {
+                setTimeout(() => {
+                    this.initBoard();
+                    this.initGame();
+                }, 1500);
+            }
+        }, 1000);
+    }
+
+    renderScoresWithAnimation() {
+        const xScore = document.querySelector('.score-x');
+        const oScore = document.querySelector('.score-o');
+        
+        xScore.classList.remove('score-animation');
+        oScore.classList.remove('score-animation');
+
+        void xScore.offsetWidth; 
+        void oScore.offsetWidth; 
+
+        xScore.textContent = this.scores['X'];
+        oScore.textContent = this.scores['O'];
+
+        if (this.currentPlayer === 'X') {
+            xScore.classList.add('score-animation');
+        } else {
+            oScore.classList.add('score-animation');
+        }
+    }
+
+    showGameEnd(message) {
+        if (message.includes('X')) {
+            this.winnerText.innerHTML = '<span style="color: var(--x-color)">X</span> Wins the Match!';
+        } else if (message.includes('O')) {
+            this.winnerText.innerHTML = '<span style="color: var(--o-color)">O</span> Wins the Match!';
+        } else {
+            this.winnerText.textContent = message;
+        }
+        this.gameEndOverlay.style.display = 'flex';
+        setTimeout(() => this.gameEndOverlay.classList.add('visible'), 10);
+    }
+
+    checkMatchEnd(msg) {
+        this.gameActive = false;
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+        this.showGameEnd(msg);
+    }
+
+    renderScores() {
+        document.querySelector('.score-x').textContent = this.scores['X'];
+        document.querySelector('.score-o').textContent = this.scores['O'];
     }
 
     updateStatus() {
-        this.status.textContent = `${this.currentPlayer}'s Turn`;
-    }
-
-    resetGame() {
-        setTimeout(() => {
-            this.playerMoves = { 'X': [], 'O': [] };
-            this.currentPlayer = 'X';
-            this.gameActive = true;
-            Array.from(this.board.children).forEach(cell => {
-                cell.textContent = '';
-                cell.classList.remove('x', 'o', 'mark-animation');
-            });
-            this.board.classList.remove('game-disabled');
-            this.updateStatus();
-        }, 1500);
+        this.statusElem.textContent = `${this.currentPlayer}'s Turn`;
+        this.statusElem.style.color =
+            this.currentPlayer === 'X' ? 'var(--x-color)' : 'var(--o-color)';
     }
 }
 
