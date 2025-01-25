@@ -18,14 +18,14 @@
             }
         }
 
-        /* Slower, subtler winning tile animation */
         @keyframes winningTile {
             0% { transform: scale(1); }
-            50% { transform: scale(1.06); }
+            25% { transform: scale(1.05); }
+            50% { transform: scale(1); }
+            75% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
 
-        /* Score number roll */
         @keyframes numberRoll {
             0% { transform: translateY(-100%); opacity: 0; }
             20% { transform: translateY(-80%); opacity: 0.2; }
@@ -436,8 +436,13 @@
         }
 
         .cell.winning {
-            animation: winningTile 2s ease-in-out infinite;
+            animation: winningTile 2s ease-in-out;
             background: var(--win-highlight);
+        }
+
+        .cell.draw {
+            transition: color 2s ease;
+            color: rgba(128, 128, 128, 0.5) !important;
         }
 
         .mark-animation {
@@ -669,12 +674,14 @@ class InfiniteTicTacToe {
         this.backConfirmNoBtn = document.getElementById('backConfirmNoBtn');
         this.initBackConfirmButtons();
         
+        // Game settings
         this.gameMode = 'ai';
         this.aiDifficulty = 'easy';
         this.scoreLimit = 0;
         this.turnTimeLimit = 0;
         this.highlightRemoval = true;
 
+        // Game state
         this.currentPlayer = 'X';
         this.gameActive = true;
         this.playerMoves = { 'X': [], 'O': [] };
@@ -684,6 +691,11 @@ class InfiniteTicTacToe {
         this.countdownInterval = null;
         this.nextStarter = 'X';
         this.winningCombination = null;
+
+        //loop detection
+        this.loopStates = new Map();
+        this.enableSafeStrategy = false;
+        this.stateHistory = [];
 
         this.aiDifficultyRow.classList.add('visible');
 
@@ -768,6 +780,7 @@ class InfiniteTicTacToe {
             }, 150);
         });
     }
+
     loadTheme() {
         const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -906,6 +919,13 @@ class InfiniteTicTacToe {
         }
     }
 
+    getBoardState() {
+        return [
+            [...this.playerMoves['X']].sort().toString(),
+            [...this.playerMoves['O']].sort().toString()
+        ].join('|');
+    }
+
     initGame() {
         this.playerMoves = { 'X': [], 'O': [] };
         this.gameActive = true;
@@ -965,6 +985,7 @@ class InfiniteTicTacToe {
         this.renderScoresWithAnimation();
         this.checkMatchEnd(`${winner} Wins! (Time Out)`);
     }
+
     makeMove(index) {
         if (!this.gameActive) return;
         
@@ -1018,18 +1039,37 @@ class InfiniteTicTacToe {
     }
 
     makeAIMove() {
-        if (!this.gameActive) return;
+    if (!this.gameActive) return;
+
+    const currentState = this.getBoardState();
+    
+    // Only check for loops if we have enough moves
+    if (this.playerMoves['O'].length >= 3) {
+        if (!this.loopStates.has(currentState)) {
+            this.loopStates.set(currentState, 1);
+        } else {
+            const count = this.loopStates.get(currentState) + 1;
+            this.loopStates.set(currentState, count);
+            
+            if (count === 2) {
+                this.enableSafeStrategy = true;
+            } else if (count === 3) {
+                this.handleDraw();
+                return;
+            }
+        }
+    }
 
         let move;
         switch(this.aiDifficulty) {
             case 'easy':
-                move = Math.random() < 0.7 ? this.getSmartMove(1) : this.getRandomMove();
+                move = Math.random() < 0.5 ? this.getSmartMove(1) : this.getRandomMove();
                 break;
             case 'medium':
-                if (Math.random() < 0.4) {
-                    move = this.getRandomMove();
-                } else {
+                if (Math.random() < 0.6) {
                     move = this.getSmartMove(2);
+                } else {
+                    move = this.getRandomMove();
                 }
                 break;
             case 'hard':
@@ -1043,53 +1083,83 @@ class InfiniteTicTacToe {
     }
 
     getSmartMove(depth) {
-        const availableMoves = this.getEmptyCells();
-        if (availableMoves.length === 0) return null;
+    const availableMoves = this.getEmptyCells();
+    if (availableMoves.length === 0) return null;
 
-        // First check for winning moves
-        for (const move of availableMoves) {
-            if (this.wouldWin('O', move)) {
-                return move;
-            }
+    // For easy mode, sometimes skip checking winning moves
+    if (this.aiDifficulty === 'easy' && Math.random() < 0.3) {
+        return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+    }
+
+    // First check for winning moves
+    const winningMoves = availableMoves.filter(move => this.wouldWin('O', move));
+    if (winningMoves.length > 0) {
+        return winningMoves[Math.floor(Math.random() * winningMoves.length)];
+    }
+
+    // For easy mode, sometimes skip blocking player
+    if (this.aiDifficulty === 'easy' && Math.random() < 0.4) {
+        return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+    }
+
+    // Then check for blocking opponent's winning moves
+    const blockingMoves = availableMoves.filter(move => this.wouldWin('X', move));
+    if (blockingMoves.length > 0) {
+        return blockingMoves[Math.floor(Math.random() * blockingMoves.length)];
+    }
+
+    // Safe strategy for loop prevention
+    if (this.enableSafeStrategy) {
+        const strategicMoves = availableMoves.filter(move => {
+            const futureState = this.simulateFutureState('O', move);
+            return this.evaluatePosition(futureState) > 0;
+        });
+        
+        if (strategicMoves.length > 0) {
+            return strategicMoves[Math.floor(Math.random() * strategicMoves.length)];
         }
+    }
 
-        // Then check for blocking opponent's winning moves
-        for (const move of availableMoves) {
-            if (this.wouldWin('X', move)) {
-                return move;
-            }
+    // Get scores for all available moves
+    const moveScores = new Map();
+    let bestScore = -Infinity;
+
+    for (const move of availableMoves) {
+        const originalState = {
+            'X': [...this.playerMoves['X']],
+            'O': [...this.playerMoves['O']]
+        };
+
+        this.simulateMove('O', move);
+        const score = this.minimax(depth - 1, false, -Infinity, Infinity);
+        this.undoMove('O', originalState['O']);
+
+        moveScores.set(move, score);
+        bestScore = Math.max(bestScore, score);
+    }
+
+    // Get all moves with the best score
+    const bestMoves = [...moveScores.entries()]
+        .filter(([_, score]) => score === bestScore)
+        .map(([move, _]) => move);
+
+    // Randomly select from the best moves
+    return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+    }
+
+    // Add new helper method for future state simulation
+    simulateFutureState(player, move) {
+        const futureState = {
+            'X': [...this.playerMoves['X']],
+            'O': [...this.playerMoves['O']]
+        };
+        
+        futureState[player].push(move);
+        if (futureState[player].length > 3) {
+            futureState[player].shift();
         }
-
-        // Prevent loops by tracking move history
-        const moveHistory = new Set(this.playerMoves['O'].map(String));
-        let bestMove = availableMoves[0];
-        let bestScore = -Infinity;
-
-        for (const move of availableMoves) {
-            // Skip moves that would create a loop
-            if (moveHistory.has(String(move))) continue;
-
-            const originalState = {
-                'X': [...this.playerMoves['X']],
-                'O': [...this.playerMoves['O']]
-            };
-
-            this.simulateMove('O', move);
-            const score = this.minimax(depth - 1, false, -Infinity, Infinity);
-            this.undoMove('O', originalState['O']);
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestMove = move;
-            }
-        }
-
-        // Add randomization to prevent predictable patterns
-        if (bestScore === 0 && Math.random() < 0.3) {
-            return availableMoves[Math.floor(Math.random() * availableMoves.length)];
-        }
-
-        return bestMove;
+        
+        return futureState;
     }
 
     minimax(depth, isMaximizing, alpha, beta) {
@@ -1132,6 +1202,7 @@ class InfiniteTicTacToe {
             return minScore;
         }
     }
+
     simulateMove(player, move) {
         this.playerMoves[player].push(move);
         if (this.playerMoves[player].length > 3) {
@@ -1239,7 +1310,7 @@ class InfiniteTicTacToe {
                 setTimeout(() => {
                     this.initBoard();
                     this.initGame();
-                }, 1500);
+                }, 1000);
             }
         }, 1000);
     }
@@ -1262,6 +1333,26 @@ class InfiniteTicTacToe {
         } else {
             oScore.classList.add('score-animation');
         }
+    }
+
+    handleDraw() {
+        this.gameActive = false;
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+
+        // Fade out all marks instead of cells
+        Array.from(this.boardElem.children).forEach(cell => {
+            if (cell.textContent) {
+                cell.classList.add('draw');
+            }
+        });
+
+        setTimeout(() => {
+            this.initBoard();
+            this.initGame();
+        }, 1000);
     }
 
     showGameEnd(message) {
