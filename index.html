@@ -103,14 +103,14 @@
         #theme-toggle .material-symbols-rounded,
         #back-button .material-symbols-rounded {
             font-size: 28px;
-            transition: transform 0.3s ease, opacity 0.2s ease;
-            opacity: 1;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         #theme-toggle .material-symbols-rounded.fade-out,
         #back-button .material-symbols-rounded.fade-out {
             opacity: 0;
-            transform: scale(0.8);
+            transform: scale(1);
         }
 
         #theme-toggle,
@@ -151,14 +151,14 @@
 
         #theme-toggle:active .material-symbols-rounded,
         #back-button:active .material-symbols-rounded {
-            background: var(--button-active);
-            transform: translateY(0);
-            transform: scale(0.85);
+            transform: scale(0.9);
         }
 
         .material-symbols-rounded {
             font-size: 28px;
-            transition: transform 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 1;
+            transform: scale(1);
         }
 
         .game-setup {
@@ -744,13 +744,28 @@ class InfiniteTicTacToe {
         });
 
         document.getElementById('startBtn').addEventListener('click', () => {
-            this.setupDiv.style.display = 'none';
-            this.mainContainer.style.display = 'flex';
-            this.backButton.querySelector('.material-symbols-rounded').textContent = 'arrow_back';
-            this.initBoard();
-            this.initGame();
-            this.renderScores();
-            this.updateStatus();
+            const icon = this.backButton.querySelector('.material-symbols-rounded');
+            
+            // Add fade out animation
+            icon.style.opacity = '0';
+            icon.style.transform = 'scale(0.9)';
+            
+            setTimeout(() => {
+                this.setupDiv.style.display = 'none';
+                this.mainContainer.style.display = 'flex';
+                icon.textContent = 'arrow_back';
+                
+                // Add fade in animation
+                requestAnimationFrame(() => {
+                    icon.style.opacity = '1';
+                    icon.style.transform = 'scale(1)';
+                });
+                
+                this.initBoard();
+                this.initGame();
+                this.renderScores();
+                this.updateStatus();
+            }, 150);
         });
     }
     loadTheme() {
@@ -765,41 +780,64 @@ class InfiniteTicTacToe {
         this.themeToggle.addEventListener('click', () => {
             const html = document.documentElement;
             const isDark = html.getAttribute('data-theme') === 'dark';
-            const newTheme = isDark ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            this.themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
-            localStorage.setItem('theme', newTheme);
+            const icon = this.themeIcon;
+            
+            icon.style.opacity = '0';
+            icon.style.transform = 'scale(0.9)';
+            
+            setTimeout(() => {
+                const newTheme = isDark ? 'light' : 'dark';
+                html.setAttribute('data-theme', newTheme);
+                icon.textContent = isDark ? 'light_mode' : 'dark_mode';
+                localStorage.setItem('theme', newTheme);
+                
+                requestAnimationFrame(() => {
+                    icon.style.opacity = '1';
+                    icon.style.transform = 'scale(1)';
+                });
+            }, 150);
         });
     }
 
     initBackButton() {
         this.backButton.addEventListener('click', () => {
+            const isInGame = (this.mainContainer.style.display === 'flex');
             this.showBackConfirmOverlay();
         });
     }
 
     initBackConfirmButtons() {
-        this.backConfirmYesBtn.addEventListener('click', () => {
-            const isInGame = (this.mainContainer.style.display === 'flex');
-            this.hideBackConfirmOverlay();
+    this.backConfirmYesBtn.addEventListener('click', () => {
+        const isInGame = (this.mainContainer.style.display === 'flex');
+        this.hideBackConfirmOverlay();
 
-            if (isInGame) {
+        if (isInGame) {
+            const icon = this.backButton.querySelector('.material-symbols-rounded');
+            icon.style.opacity = '0';
+            icon.style.transform = 'scale(0.9)';
+            
+            setTimeout(() => {
                 this.mainContainer.style.display = 'none';
                 this.setupDiv.style.display = 'flex';
-                this.backButton.querySelector('.material-symbols-rounded').textContent = 'logout';
+                icon.textContent = 'logout';
+                
+                requestAnimationFrame(() => {
+                    icon.style.opacity = '1';
+                    icon.style.transform = 'scale(1)';
+                });
+                
                 this.scores = { 'X': 0, 'O': 0 };
-            } else {
-                // Instead of console.log, redirect to a specific URL or close window
-                window.location.href = 'about:blank';
-                window.close();
-                // Fallback if window.close() is blocked
-                document.body.style.display = 'none';
-                history.back();
-            }
-        });
-        
-        this.backConfirmNoBtn.addEventListener('click', () => {
-            this.hideBackConfirmOverlay();
+            }, 150);
+        } else {
+            window.location.href = 'about:blank';
+            window.close();
+            document.body.style.display = 'none';
+            history.back();
+        }
+    });
+    
+    this.backConfirmNoBtn.addEventListener('click', () => {
+        this.hideBackConfirmOverlay();
         });
     }
 
