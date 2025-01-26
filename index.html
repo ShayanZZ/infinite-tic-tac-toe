@@ -188,7 +188,7 @@
             display: none;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
         }
 
         .setup-title {
@@ -329,15 +329,15 @@
         }
 
         #status {
-            order: 1;
+            order: 0 !important;
             font-size: 1.8rem;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         #timer {
-            order: 2;
+            order: 1 !important;
             font-size: 2rem;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             transition: color 0.3s ease;
         }
 
@@ -386,6 +386,7 @@
         }
         
         .board {
+            order: 2;
             display: grid;
             grid-template-columns: repeat(3, minmax(100px, 150px));
             gap: 12px;
@@ -940,8 +941,8 @@ class InfiniteTicTacToe {
         this.currentPlayer = this.nextStarter;
         this.nextStarter = this.nextStarter === 'X' ? 'O' : 'X';
         this.winningCombination = null;
-        this.statusElem.style.order = '1';
-        this.timerElem.style.order = '2';
+        this.statusElem.style.order = '0';
+        this.timerElem.style.order = '1';
         
         Array.from(this.boardElem.children).forEach(cell => {
             cell.classList.remove('winning', 'x', 'o', 'dim');
@@ -1002,30 +1003,26 @@ class InfiniteTicTacToe {
         if (!this.gameActive) return;
         const winner = this.currentPlayer === 'X' ? 'O' : 'X';
         
-        // Stop and flash timer
         clearInterval(this.countdownInterval);
         this.countdownInterval = null;
         this.timeLeft = 0;
         this.updateTimerDisplay();
         
-        // Update scores
-        this.scores[winner]++;
-        if (this.scores[winner] > 0) {  // Only animate if score actually changed
-        this.renderScoresWithAnimation(winner);
-        }
-
-        // Match win/draw timing exactly
+        // Delay score update and animation
         setTimeout(() => {
+            this.scores[winner]++;
+            this.renderScoresWithAnimation(winner);
+            
             if (this.scoreLimit > 0 && this.scores[winner] >= this.scoreLimit) {
                 this.showGameEnd(`${winner} Wins the Match!`);
             } else {
-                setTimeout(() => {  // Add extra delay to match win timing
-                this.initBoard();
-                this.initGame();
+                setTimeout(() => {
+                    this.initBoard();
+                    this.initGame();
                 }, 1000);
             }
-            }, 1000); // Total 2s delay now matches win condition
-        }
+        }, 1000); // Match win animation timing
+    }
 
     makeMove(index) {
         if (!this.gameActive) return;
@@ -1418,8 +1415,12 @@ class InfiniteTicTacToe {
     }
 
     renderScores() {
-        document.querySelector('.score-x').textContent = this.scores['X'];
-        document.querySelector('.score-o').textContent = this.scores['O'];
+        const xScore = document.querySelector('.score-x');
+        const oScore = document.querySelector('.score-o');
+        xScore.textContent = this.scores['X'];
+        oScore.textContent = this.scores['O'];
+        xScore.classList.remove('score-animation');
+        oScore.classList.remove('score-animation');
     }
 
     updateStatus() {
