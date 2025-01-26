@@ -26,6 +26,12 @@
             100% { transform: scale(1); }
         }
 
+        @keyframes flash {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
         @keyframes numberRoll {
             0% { transform: translateY(-100%); opacity: 0; }
             20% { transform: translateY(-80%); opacity: 0.2; }
@@ -179,16 +185,10 @@
         }
 
         .main-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
             display: none;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
-            width: 90%;
-            max-width: 600px;
+            gap: 10px;
         }
 
         .setup-title {
@@ -328,11 +328,25 @@
             transform: translateY(0);
         }
 
-        #timer {
-            font-size: 2rem;
-            font-weight: 600;
+        #status {
+            order: 1;
+            font-size: 1.8rem;
             margin-bottom: 10px;
-            color: var(--text-color);
+        }
+
+        #timer {
+            order: 2;
+            font-size: 2rem;
+            margin-bottom: 20px;
+            transition: color 0.3s ease;
+        }
+
+        #scoreboard {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            font-size: 2.5rem;
+            font-weight: 600;
         }
 
         .scoreboard-container {
@@ -346,15 +360,7 @@
             margin-bottom: 10px;
             animation: fadeInUp 0.8s ease both;
         }
-
-        #scoreboard {
-            display: flex;
-            align-items: center;
-            gap: 30px;
-            font-size: 2.5rem;
-            font-weight: 600;
-        }
-
+        
         .score-divider {
             font-size: 2.5rem;
             font-weight: 300;
@@ -378,15 +384,7 @@
         .score-animation {
             animation: numberRoll 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
-
-        #status {
-            font-size: 1.8rem;
-            font-weight: 500;
-            margin-bottom: 20px;
-            transition: color 0.3s ease;
-            animation: fadeInUp 0.9s ease both;  /* Added animation */
-        }
-
+        
         .board {
             display: grid;
             grid-template-columns: repeat(3, minmax(100px, 150px));
@@ -443,6 +441,10 @@
         .cell.draw {
             transition: color 2s ease;
             color: rgba(128, 128, 128, 0.5) !important;
+        }
+
+        .flash {
+            animation: flash 0.5s ease infinite;
         }
 
         .mark-animation {
@@ -624,8 +626,8 @@
                 <span class="score-o">0</span>
             </div>
         </div>
-        <div id="timer"></div>
         <div id="status"></div>
+        <div id="timer"></div>
         <div class="board" id="board"></div>
     </div>
 
@@ -757,6 +759,10 @@ class InfiniteTicTacToe {
 
         document.getElementById('startBtn').addEventListener('click', () => {
             const icon = this.backButton.querySelector('.material-symbols-rounded');
+            
+            // Reset scores when starting new game
+            this.scores = { 'X': 0, 'O': 0 };
+            this.renderScores();
             
             // Add fade out animation
             icon.style.opacity = '0';
@@ -909,6 +915,8 @@ class InfiniteTicTacToe {
             const handleInteraction = (e) => {
                 e.preventDefault();
                 if (e.type === 'mousedown' && e.button !== 0) return;
+                // Prevent interaction during AI's turn in vs AI mode
+                if (this.gameMode === 'ai' && this.currentPlayer === 'O') return;
                 this.makeMove(i);
             };
 
@@ -932,6 +940,8 @@ class InfiniteTicTacToe {
         this.currentPlayer = this.nextStarter;
         this.nextStarter = this.nextStarter === 'X' ? 'O' : 'X';
         this.winningCombination = null;
+        this.statusElem.style.order = '1';
+        this.timerElem.style.order = '2';
         
         Array.from(this.boardElem.children).forEach(cell => {
             cell.classList.remove('winning', 'x', 'o', 'dim');
@@ -975,16 +985,47 @@ class InfiniteTicTacToe {
     }
 
     updateTimerDisplay() {
-        this.timerElem.textContent = this.timeLeft > 0 ? this.timeLeft : '';
+        this.timerElem.textContent = this.timeLeft > 0 ? this.timeLeft : '0';
+        this.timerElem.style.color = this.currentPlayer === 'X' 
+            ? 'var(--x-color)' 
+            : 'var(--o-color)';
+        
+        // Flash animation when reaching 0
+        if (this.timeLeft === 0) {
+            this.timerElem.classList.add('flash');
+        } else {
+            this.timerElem.classList.remove('flash');
+        }
     }
 
     handleTimeOut() {
         if (!this.gameActive) return;
         const winner = this.currentPlayer === 'X' ? 'O' : 'X';
+        
+        // Stop and flash timer
+        clearInterval(this.countdownInterval);
+        this.countdownInterval = null;
+        this.timeLeft = 0;
+        this.updateTimerDisplay();
+        
+        // Update scores
         this.scores[winner]++;
-        this.renderScoresWithAnimation();
-        this.checkMatchEnd(`${winner} Wins! (Time Out)`);
-    }
+        if (this.scores[winner] > 0) {  // Only animate if score actually changed
+        this.renderScoresWithAnimation(winner);
+        }
+
+        // Match win/draw timing exactly
+        setTimeout(() => {
+            if (this.scoreLimit > 0 && this.scores[winner] >= this.scoreLimit) {
+                this.showGameEnd(`${winner} Wins the Match!`);
+            } else {
+                setTimeout(() => {  // Add extra delay to match win timing
+                this.initBoard();
+                this.initGame();
+                }, 1000);
+            }
+            }, 1000); // Total 2s delay now matches win condition
+        }
 
     makeMove(index) {
         if (!this.gameActive) return;
@@ -1300,39 +1341,39 @@ class InfiniteTicTacToe {
 
         setTimeout(() => {
             this.scores[this.currentPlayer]++;
-            this.renderScoresWithAnimation();
+            this.renderScoresWithAnimation(this.currentPlayer);
             
             if (this.scoreLimit > 0 && this.scores[this.currentPlayer] >= this.scoreLimit) {
                 setTimeout(() => {
-                    this.showGameEnd(`${this.currentPlayer} Wins the Match!`);
+                this.showGameEnd(`${this.currentPlayer} Wins the Match!`);
                 }, 500);
             } else {
                 setTimeout(() => {
-                    this.initBoard();
-                    this.initGame();
+                this.initBoard();
+                this.initGame();
                 }, 1000);
             }
-        }, 1000);
-    }
-
-    renderScoresWithAnimation() {
-        const xScore = document.querySelector('.score-x');
-        const oScore = document.querySelector('.score-o');
-        
-        xScore.classList.remove('score-animation');
-        oScore.classList.remove('score-animation');
-
-        void xScore.offsetWidth; 
-        void oScore.offsetWidth; 
-
-        xScore.textContent = this.scores['X'];
-        oScore.textContent = this.scores['O'];
-
-        if (this.currentPlayer === 'X') {
-            xScore.classList.add('score-animation');
-        } else {
-            oScore.classList.add('score-animation');
+            }, 1000);
         }
+
+    renderScoresWithAnimation(winner) {
+    const xScore = document.querySelector('.score-x');
+    const oScore = document.querySelector('.score-o');
+    
+    xScore.classList.remove('score-animation');
+    oScore.classList.remove('score-animation');
+
+    void xScore.offsetWidth; // Trigger reflow
+    void oScore.offsetWidth;
+
+    xScore.textContent = this.scores['X'];
+    oScore.textContent = this.scores['O'];
+
+    if (winner === 'X') {
+        xScore.classList.add('score-animation');
+    } else {
+        oScore.classList.add('score-animation');
+    }
     }
 
     handleDraw() {
