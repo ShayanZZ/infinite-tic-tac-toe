@@ -6,15 +6,36 @@
     <title>Infinite Tic-Tac-Toe</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,0,0">
     <style>
-        /* Startup fade-in animation for everything */
         @keyframes fadeInUp {
             0% {
                 opacity: 0;
-                transform: translateY(15px);
+                transform: translateY(20px);
             }
             100% {
                 opacity: 1;
                 transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            0% {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            0% {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
             }
         }
 
@@ -119,6 +140,37 @@
             transform: scale(1);
         }
 
+        #theme-toggle {
+            animation: slideInRight 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            animation-delay: 0.3s;
+        }
+
+        #back-button {
+            animation: slideInLeft 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            animation-delay: 0.3s;
+        }
+
+        .game-setup {
+            animation: fadeInUp 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            animation-delay: 0.4s;
+        }
+
+        .main-container {
+            animation: fadeInUp 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            animation-delay: 0.2s;
+        }
+
+        #startBtn {
+            opacity: 1;
+            animation: fadeInUp 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            animation-delay: 0.5s;
+        }
+
+        .setup-title {
+            animation: fadeInUp 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both !important;
+            animation-delay: 0.5s;
+        }
+
         #theme-toggle,
         #back-button {
             position: fixed;
@@ -136,7 +188,7 @@
             justify-content: center;
             z-index: 999;
             transition: all 0.3s ease;
-            animation: fadeInUp 0.7s ease both;
+            animation-delay: 0.2s;
         }
 
         #theme-toggle {
@@ -167,11 +219,22 @@
             transform: scale(1);
         }
 
+        .scoreboard-container,
+        #status,
+        #timer,
+        .board {
+            animation: fadeInUp 1s ease both;
+        }
+
+        .setup-title, #startBtn {
+            animation: none !important;
+        }
+
         .game-setup {
             position: fixed;
-            top: 50%;
-            left: 50%;
             transform: translate(-50%, -50%);
+            margin: 0;
+            justify-content: center;
             padding: 30px;
             background: var(--menu-bg);
             border-radius: 24px;
@@ -182,6 +245,8 @@
             width: 90%;
             max-width: 400px;
             z-index: 100;
+            animation: fadeInUp 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+            animation-delay: 0.1s;
         }
 
         .main-container {
@@ -189,6 +254,7 @@
             flex-direction: column;
             align-items: center;
             gap: 15px;
+            animation: fadeInUp 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
         }
 
         .setup-title {
@@ -197,16 +263,13 @@
             text-align: center;
             margin-bottom: 10px;
             color: var(--text-color);
-            animation: fadeInUp 0.7s ease both;  /* Added animation */
+            animation: fadeInUp 0.7s ease both;
         }
 
         .setup-row {
             display: flex;
             flex-direction: column;
             gap: 12px;
-            animation: fadeInUp 0.8s ease both;  /* Added animation */
-            animation-delay: calc(var(--index, 0) * 0.1s);  /* Added delay */
-            opacity: 0;
         }
 
         #aiDifficultyRow {
@@ -314,9 +377,9 @@
             cursor: pointer;
             transition: all 0.2s ease;
             margin-top: 10px;
-            animation: fadeInUp 0.8s ease both;
-            animation-delay: 0.5s;  /* Match the last menu item */
-            opacity: 0;  /* Add this to prevent flash before animation */
+            opacity: 1;
+            animation: fadeInUp 0.7s ease both;
+            animation-delay: 0.2s;
         }
 
         #startBtn:hover {
@@ -358,7 +421,6 @@
             border-radius: 15px;
             box-shadow: 0 4px 15px var(--cell-shadow);
             margin-bottom: 10px;
-            animation: fadeInUp 0.8s ease both;
         }
         
         .score-divider {
@@ -394,7 +456,6 @@
             background: var(--board-bg);
             border-radius: 20px;
             box-shadow: 0 20px 60px var(--cell-shadow);
-            animation: fadeInUp 1s ease both;
         }
 
         .cell {
@@ -514,7 +575,7 @@
             transition: all 0.2s ease;
             background: var(--x-color);
             color: white;
-            min-width: 120px;  /* Add fixed minimum width */
+            min-width: 120px;
         }
 
         .overlay-button:hover {
@@ -558,7 +619,6 @@
         }
     </style>
 </head>
-</head>
 <body>
     <button id="theme-toggle">
         <span class="material-symbols-rounded">light_mode</span>
@@ -571,7 +631,7 @@
     <div class="game-setup" id="game-setup">
         <h1 class="setup-title">Infinite Tic-Tac-Toe</h1>
         
-        <div class="setup-row" style="--index: 1">
+        <div class="setup-row">
             <label>Game Mode</label>
             <div class="button-group">
                 <button class="option-button selected" data-mode="ai">VS AI</button>
@@ -579,7 +639,7 @@
             </div>
         </div>
 
-        <div class="setup-row visible" id="aiDifficultyRow" style="--index: 2">
+        <div class="setup-row visible" id="aiDifficultyRow">
             <label>AI Difficulty</label>
             <div class="button-group">
                 <button class="option-button selected" data-difficulty="easy">Easy</button>
@@ -588,7 +648,7 @@
             </div>
         </div>
 
-        <div class="setup-row" style="--index: 3">
+        <div class="setup-row">
             <div class="slider-container">
                 <div class="slider-info">
                     <label>Score to Win</label>
@@ -598,7 +658,7 @@
             </div>
         </div>
 
-        <div class="setup-row" style="--index: 4">
+        <div class="setup-row">
             <div class="slider-container">
                 <div class="slider-info">
                     <label>Time per Turn</label>
@@ -608,7 +668,7 @@
             </div>
         </div>
 
-        <div class="setup-row" style="--index: 5">
+        <div class="setup-row">
             <label>Highlight Next Removal</label>
             <div class="button-group">
                 <button class="option-button selected" data-highlight="true">On</button>
@@ -677,14 +737,12 @@ class InfiniteTicTacToe {
         this.backConfirmNoBtn = document.getElementById('backConfirmNoBtn');
         this.initBackConfirmButtons();
         
-        // Game settings
         this.gameMode = 'ai';
         this.aiDifficulty = 'easy';
         this.scoreLimit = 0;
         this.turnTimeLimit = 0;
         this.highlightRemoval = true;
 
-        // Game state
         this.currentPlayer = 'X';
         this.gameActive = true;
         this.playerMoves = { 'X': [], 'O': [] };
@@ -695,7 +753,6 @@ class InfiniteTicTacToe {
         this.nextStarter = 'X';
         this.winningCombination = null;
 
-        //loop detection
         this.loopStates = new Map();
         this.enableSafeStrategy = false;
         this.stateHistory = [];
@@ -765,7 +822,6 @@ class InfiniteTicTacToe {
                 this.aiMoveTimeout = null;
             }
             
-            // Reset scores without animation
             this.scores = { 'X': 0, 'O': 0 };
             this.renderScores();
             
@@ -832,7 +888,6 @@ class InfiniteTicTacToe {
             const isInGame = (this.mainContainer.style.display === 'flex');
             this.hideBackConfirmOverlay();
 
-            // Clear all game timers and timeouts
             clearInterval(this.countdownInterval);
             clearTimeout(this.aiMoveTimeout);
             this.countdownInterval = null;
@@ -853,7 +908,6 @@ class InfiniteTicTacToe {
                         icon.style.transform = 'scale(1)';
                     });
                     
-                    // Full state reset
                     this.scores = { 'X': 0, 'O': 0 };
                     this.playerMoves = { 'X': [], 'O': [] };
                     this.renderScores();
@@ -921,7 +975,6 @@ class InfiniteTicTacToe {
             const handleInteraction = (e) => {
                 e.preventDefault();
                 if (e.type === 'mousedown' && e.button !== 0) return;
-                // Prevent interaction during AI's turn in vs AI mode
                 if (this.gameMode === 'ai' && this.currentPlayer === 'O') return;
                 this.makeMove(i);
             };
@@ -941,7 +994,6 @@ class InfiniteTicTacToe {
     }
 
     initGame() {
-        // Full game state reset
         this.playerMoves = { 'X': [], 'O': [] };
         this.gameActive = true;
         this.currentPlayer = this.nextStarter;
@@ -951,7 +1003,6 @@ class InfiniteTicTacToe {
         this.enableSafeStrategy = false;
         this.stateHistory = [];
         
-        // Clear existing timers
         if (this.countdownInterval) {
             clearInterval(this.countdownInterval);
             this.countdownInterval = null;
@@ -961,7 +1012,6 @@ class InfiniteTicTacToe {
             this.aiMoveTimeout = null;
         }
 
-        // Reset UI elements
         Array.from(this.boardElem.children).forEach(cell => {
             cell.classList.remove('winning', 'x', 'o', 'dim');
             cell.textContent = '';
@@ -972,7 +1022,6 @@ class InfiniteTicTacToe {
         this.updateStatus();
         this.startTurnTimer();
 
-        // Delay AI move to ensure board is ready
         if (this.gameMode === 'ai' && this.currentPlayer === 'O') {
             this.aiMoveTimeout = setTimeout(() => this.makeAIMove(), 500);
         }
@@ -1007,7 +1056,6 @@ class InfiniteTicTacToe {
             ? 'var(--x-color)' 
             : 'var(--o-color)';
         
-        // Flash animation when reaching 0
         if (this.timeLeft === 0) {
             this.timerElem.classList.add('flash');
         } else {
@@ -1017,7 +1065,7 @@ class InfiniteTicTacToe {
 
     handleTimeOut() {
         if (!this.gameActive) return;
-        this.gameActive = false; // Immediately deactivate
+        this.gameActive = false;
         
         const winner = this.currentPlayer === 'X' ? 'O' : 'X';
         
@@ -1126,29 +1174,24 @@ class InfiniteTicTacToe {
     const availableMoves = this.getEmptyCells();
     if (availableMoves.length === 0) return null;
 
-    // For easy mode, sometimes skip checking winning moves
     if (this.aiDifficulty === 'easy' && Math.random() < 0.3) {
         return availableMoves[Math.floor(Math.random() * availableMoves.length)];
     }
 
-    // First check for winning moves
     const winningMoves = availableMoves.filter(move => this.wouldWin('O', move));
     if (winningMoves.length > 0) {
         return winningMoves[Math.floor(Math.random() * winningMoves.length)];
     }
 
-    // For easy mode, sometimes skip blocking player
     if (this.aiDifficulty === 'easy' && Math.random() < 0.4) {
         return availableMoves[Math.floor(Math.random() * availableMoves.length)];
     }
 
-    // Then check for blocking opponent's winning moves
     const blockingMoves = availableMoves.filter(move => this.wouldWin('X', move));
     if (blockingMoves.length > 0) {
         return blockingMoves[Math.floor(Math.random() * blockingMoves.length)];
     }
 
-    // Safe strategy for loop prevention
     if (this.enableSafeStrategy) {
         const strategicMoves = availableMoves.filter(move => {
             const futureState = this.simulateFutureState('O', move);
@@ -1160,7 +1203,6 @@ class InfiniteTicTacToe {
         }
     }
 
-    // Get scores for all available moves
     const moveScores = new Map();
     let bestScore = -Infinity;
 
@@ -1178,16 +1220,13 @@ class InfiniteTicTacToe {
         bestScore = Math.max(bestScore, score);
     }
 
-    // Get all moves with the best score
     const bestMoves = [...moveScores.entries()]
         .filter(([_, score]) => score === bestScore)
         .map(([move, _]) => move);
 
-    // Randomly select from the best moves
     return bestMoves[Math.floor(Math.random() * bestMoves.length)];
     }
 
-    // Add new helper method for future state simulation
     simulateFutureState(player, move) {
         const futureState = {
             'X': [...this.playerMoves['X']],
@@ -1362,7 +1401,7 @@ class InfiniteTicTacToe {
     xScore.classList.remove('score-animation');
     oScore.classList.remove('score-animation');
 
-    void xScore.offsetWidth; // Trigger reflow
+    void xScore.offsetWidth;
     void oScore.offsetWidth;
 
     xScore.textContent = this.scores['X'];
@@ -1382,7 +1421,6 @@ class InfiniteTicTacToe {
             this.countdownInterval = null;
         }
 
-        // Fade out all marks instead of cells
         Array.from(this.boardElem.children).forEach(cell => {
             if (cell.textContent) {
                 cell.classList.add('draw');
