@@ -759,13 +759,17 @@ class InfiniteTicTacToe {
         });
 
         document.getElementById('startBtn').addEventListener('click', () => {
-            const icon = this.backButton.querySelector('.material-symbols-rounded');
+            // Clear any pending AI moves
+            if (this.aiMoveTimeout) {
+                clearTimeout(this.aiMoveTimeout);
+                this.aiMoveTimeout = null;
+            }
             
-            // Reset scores when starting new game
+            // Reset scores without animation
             this.scores = { 'X': 0, 'O': 0 };
             this.renderScores();
             
-            // Add fade out animation
+            const icon = this.backButton.querySelector('.material-symbols-rounded');
             icon.style.opacity = '0';
             icon.style.transform = 'scale(0.9)';
             
@@ -774,7 +778,6 @@ class InfiniteTicTacToe {
                 this.mainContainer.style.display = 'flex';
                 icon.textContent = 'arrow_back';
                 
-                // Add fade in animation
                 requestAnimationFrame(() => {
                     icon.style.opacity = '1';
                     icon.style.transform = 'scale(1)';
@@ -782,8 +785,6 @@ class InfiniteTicTacToe {
                 
                 this.initBoard();
                 this.initGame();
-                this.renderScores();
-                this.updateStatus();
             }, 150);
         });
     }
@@ -827,37 +828,41 @@ class InfiniteTicTacToe {
     }
 
     initBackConfirmButtons() {
-    this.backConfirmYesBtn.addEventListener('click', () => {
-        const isInGame = (this.mainContainer.style.display === 'flex');
-        this.hideBackConfirmOverlay();
+        this.backConfirmYesBtn.addEventListener('click', () => {
+            const isInGame = (this.mainContainer.style.display === 'flex');
+            this.hideBackConfirmOverlay();
 
-        if (isInGame) {
-            const icon = this.backButton.querySelector('.material-symbols-rounded');
-            icon.style.opacity = '0';
-            icon.style.transform = 'scale(0.9)';
-            
-            setTimeout(() => {
-                this.mainContainer.style.display = 'none';
-                this.setupDiv.style.display = 'flex';
-                icon.textContent = 'logout';
+            // Clear all game timers and timeouts
+            clearInterval(this.countdownInterval);
+            clearTimeout(this.aiMoveTimeout);
+            this.countdownInterval = null;
+            this.aiMoveTimeout = null;
+
+            if (isInGame) {
+                const icon = this.backButton.querySelector('.material-symbols-rounded');
+                icon.style.opacity = '0';
+                icon.style.transform = 'scale(0.9)';
                 
-                requestAnimationFrame(() => {
-                    icon.style.opacity = '1';
-                    icon.style.transform = 'scale(1)';
-                });
-                
-                this.scores = { 'X': 0, 'O': 0 };
-            }, 150);
-        } else {
-            window.location.href = 'about:blank';
-            window.close();
-            document.body.style.display = 'none';
-            history.back();
-        }
-    });
-    
-    this.backConfirmNoBtn.addEventListener('click', () => {
-        this.hideBackConfirmOverlay();
+                setTimeout(() => {
+                    this.mainContainer.style.display = 'none';
+                    this.setupDiv.style.display = 'flex';
+                    icon.textContent = 'logout';
+                    
+                    requestAnimationFrame(() => {
+                        icon.style.opacity = '1';
+                        icon.style.transform = 'scale(1)';
+                    });
+                    
+                    // Full state reset
+                    this.scores = { 'X': 0, 'O': 0 };
+                    this.playerMoves = { 'X': [], 'O': [] };
+                    this.renderScores();
+                }, 150);
+            }
+        });
+        
+        this.backConfirmNoBtn.addEventListener('click', () => {
+            this.hideBackConfirmOverlay();
         });
     }
 
@@ -936,29 +941,40 @@ class InfiniteTicTacToe {
     }
 
     initGame() {
+        // Full game state reset
         this.playerMoves = { 'X': [], 'O': [] };
         this.gameActive = true;
         this.currentPlayer = this.nextStarter;
         this.nextStarter = this.nextStarter === 'X' ? 'O' : 'X';
         this.winningCombination = null;
-        this.statusElem.style.order = '0';
-        this.timerElem.style.order = '1';
+        this.loopStates.clear();
+        this.enableSafeStrategy = false;
+        this.stateHistory = [];
         
+        // Clear existing timers
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
+        if (this.aiMoveTimeout) {
+            clearTimeout(this.aiMoveTimeout);
+            this.aiMoveTimeout = null;
+        }
+
+        // Reset UI elements
         Array.from(this.boardElem.children).forEach(cell => {
             cell.classList.remove('winning', 'x', 'o', 'dim');
             cell.textContent = '';
         });
 
-        if (this.countdownInterval) {
-            clearInterval(this.countdownInterval);
-            this.countdownInterval = null;
-        }
-        
-        this.updateStatus(); // Add this line to update turn status
+        this.statusElem.style.order = '0';
+        this.timerElem.style.order = '1';
+        this.updateStatus();
         this.startTurnTimer();
 
+        // Delay AI move to ensure board is ready
         if (this.gameMode === 'ai' && this.currentPlayer === 'O') {
-            setTimeout(() => this.makeAIMove(), 500);
+            this.aiMoveTimeout = setTimeout(() => this.makeAIMove(), 500);
         }
     }
 
@@ -1001,14 +1017,13 @@ class InfiniteTicTacToe {
 
     handleTimeOut() {
         if (!this.gameActive) return;
+        this.gameActive = false; // Immediately deactivate
+        
         const winner = this.currentPlayer === 'X' ? 'O' : 'X';
         
         clearInterval(this.countdownInterval);
         this.countdownInterval = null;
-        this.timeLeft = 0;
-        this.updateTimerDisplay();
         
-        // Delay score update and animation
         setTimeout(() => {
             this.scores[winner]++;
             this.renderScoresWithAnimation(winner);
@@ -1021,7 +1036,7 @@ class InfiniteTicTacToe {
                     this.initGame();
                 }, 1000);
             }
-        }, 1000); // Match win animation timing
+        }, 1000);
     }
 
     makeMove(index) {
@@ -1077,26 +1092,17 @@ class InfiniteTicTacToe {
     }
 
     makeAIMove() {
-    if (!this.gameActive) return;
-
-    const currentState = this.getBoardState();
-    
-    // Only check for loops if we have enough moves
-    if (this.playerMoves['O'].length >= 3) {
-        if (!this.loopStates.has(currentState)) {
-            this.loopStates.set(currentState, 1);
-        } else {
-            const count = this.loopStates.get(currentState) + 1;
-            this.loopStates.set(currentState, count);
+        if (!this.gameActive || !this.boardElem.children.length) return;
+        if (this.playerMoves['O'].length >= 3 && !this.enableSafeStrategy) {
+            const currentState = this.getBoardState();
+            const stateCount = this.loopStates.get(currentState) || 0;
+            this.loopStates.set(currentState, stateCount + 1);
             
-            if (count === 2) {
-                this.enableSafeStrategy = true;
-            } else if (count === 3) {
+            if (stateCount >= 2) {
                 this.handleDraw();
                 return;
             }
         }
-    }
 
         let move;
         switch(this.aiDifficulty) {
@@ -1104,18 +1110,14 @@ class InfiniteTicTacToe {
                 move = Math.random() < 0.5 ? this.getSmartMove(1) : this.getRandomMove();
                 break;
             case 'medium':
-                if (Math.random() < 0.6) {
-                    move = this.getSmartMove(2);
-                } else {
-                    move = this.getRandomMove();
-                }
+                move = Math.random() < 0.6 ? this.getSmartMove(2) : this.getRandomMove();
                 break;
             case 'hard':
                 move = this.getSmartMove(3);
                 break;
         }
 
-        if (move !== null) {
+        if (move !== null && this.gameActive) {
             this.makeMove(move);
         }
     }
