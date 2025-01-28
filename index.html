@@ -732,10 +732,10 @@ class InfiniteTicTacToe {
         this.backButton.querySelector('.material-symbols-rounded').textContent = 'logout';
         this.initBackButton();
 
-        this.backConfirmOverlay = document.getElementById('backConfirmOverlay');
-        this.backConfirmYesBtn = document.getElementById('backConfirmYesBtn');
-        this.backConfirmNoBtn = document.getElementById('backConfirmNoBtn');
-        this.initBackConfirmButtons();
+        this.confirmOverlay = document.getElementById('backConfirmOverlay');
+        this.confirmYesBtn = document.getElementById('backConfirmYesBtn');
+        this.confirmNoBtn = document.getElementById('backConfirmNoBtn');
+        this.initConfirmButtons();
         
         this.gameMode = 'ai';
         this.aiDifficulty = 'easy';
@@ -879,67 +879,71 @@ class InfiniteTicTacToe {
     initBackButton() {
         this.backButton.addEventListener('click', () => {
             const isInGame = (this.mainContainer.style.display === 'flex');
-            this.showBackConfirmOverlay();
-        });
-    }
-
-    initBackConfirmButtons() {
-        this.backConfirmYesBtn.addEventListener('click', () => {
-            const isInGame = (this.mainContainer.style.display === 'flex');
-            this.hideBackConfirmOverlay();
-
-            clearInterval(this.countdownInterval);
-            clearTimeout(this.aiMoveTimeout);
-            this.countdownInterval = null;
-            this.aiMoveTimeout = null;
-
             if (isInGame) {
-                const icon = this.backButton.querySelector('.material-symbols-rounded');
-                icon.style.opacity = '0';
-                icon.style.transform = 'scale(0.9)';
-                
-                setTimeout(() => {
-                    this.mainContainer.style.display = 'none';
-                    this.setupDiv.style.display = 'flex';
-                    icon.textContent = 'logout';
-                    
-                    requestAnimationFrame(() => {
-                        icon.style.opacity = '1';
-                        icon.style.transform = 'scale(1)';
-                    });
-                    
-                    this.scores = { 'X': 0, 'O': 0 };
-                    this.playerMoves = { 'X': [], 'O': [] };
-                    this.renderScores();
-                }, 150);
+                this.showConfirmOverlay('Return to menu?', this.backConfirmAction);
+            } else {
+                this.showConfirmOverlay('Quit the game?', this.quitConfirmAction);
             }
         });
+    }
+
+    initConfirmButtons() {
+        this.confirmYesBtn.addEventListener('click', () => {
+            if (this.confirmAction) {
+                this.confirmAction();
+            }
+            this.hideConfirmOverlay();
+        });
         
-        this.backConfirmNoBtn.addEventListener('click', () => {
-            this.hideBackConfirmOverlay();
+        this.confirmNoBtn.addEventListener('click', () => {
+            this.hideConfirmOverlay();
         });
     }
 
-    hideBackConfirmOverlay() {
-        this.backConfirmOverlay.classList.remove('visible');
+    showConfirmOverlay(message, action) {
+        const textElem = document.getElementById('backConfirmText');
+        textElem.textContent = message;
+        this.confirmAction = action;
+
+        this.confirmOverlay.style.display = 'flex';
+        setTimeout(() => this.confirmOverlay.classList.add('visible'), 10);
+    }
+
+    hideConfirmOverlay() {
+        this.confirmOverlay.classList.remove('visible');
         setTimeout(() => {
-            this.backConfirmOverlay.style.display = 'none';
+            this.confirmOverlay.style.display = 'none';
         }, 300);
     }
 
-    showBackConfirmOverlay() {
-        const isInGame = (this.mainContainer.style.display === 'flex');
-        const overlay = document.getElementById('backConfirmOverlay');
-        const textElem = document.getElementById('backConfirmText');
+    backConfirmAction() {
+        clearInterval(this.countdownInterval);
+        clearTimeout(this.aiMoveTimeout);
+        this.countdownInterval = null;
+        this.aiMoveTimeout = null;
 
-        if (isInGame) {
-            textElem.textContent = 'Return to menu?';
-        } else {
-            textElem.textContent = 'Exit game?';
-        }
+        const icon = this.backButton.querySelector('.material-symbols-rounded');
+        icon.style.opacity = '0';
+        icon.style.transform = 'scale(0.9)';
+        
+        setTimeout(() => {
+            this.mainContainer.style.display = 'none';
+            this.setupDiv.style.display = 'flex';
+            icon.textContent = 'logout';
+            
+            requestAnimationFrame(() => {
+                icon.style.opacity = '1';
+                icon.style.transform = 'scale(1)';
+            });
+            
+            this.scores = { 'X': 0, 'O': 0 };
+            this.playerMoves = { 'X': [], 'O': [] };
+            this.renderScores();
+        }, 150);
+    }
 
-        overlay.style.display = 'flex';
-        setTimeout(() => overlay.classList.add('visible'), 10);
+    quitConfirmAction() {
+        window.close();
     }
 
     initGameEndButtons() {
@@ -1158,7 +1162,7 @@ class InfiniteTicTacToe {
                 move = Math.random() < 0.5 ? this.getSmartMove(1) : this.getRandomMove();
                 break;
             case 'medium':
-                move = Math.random() < 0.6 ? this.getSmartMove(2) : this.getRandomMove();
+                move = Math.random() < 0.8 ? this.getSmartMove(2) : this.getRandomMove();
                 break;
             case 'hard':
                 move = this.getSmartMove(3);
@@ -1174,35 +1178,19 @@ class InfiniteTicTacToe {
     const availableMoves = this.getEmptyCells();
     if (availableMoves.length === 0) return null;
 
-    if (this.aiDifficulty === 'easy' && Math.random() < 0.3) {
-        return availableMoves[Math.floor(Math.random() * availableMoves.length)];
-    }
-
+    // Prioritize winning moves
     const winningMoves = availableMoves.filter(move => this.wouldWin('O', move));
     if (winningMoves.length > 0) {
         return winningMoves[Math.floor(Math.random() * winningMoves.length)];
     }
 
-    if (this.aiDifficulty === 'easy' && Math.random() < 0.4) {
-        return availableMoves[Math.floor(Math.random() * availableMoves.length)];
-    }
-
+    // Prioritize blocking opponent's winning moves
     const blockingMoves = availableMoves.filter(move => this.wouldWin('X', move));
     if (blockingMoves.length > 0) {
         return blockingMoves[Math.floor(Math.random() * blockingMoves.length)];
     }
 
-    if (this.enableSafeStrategy) {
-        const strategicMoves = availableMoves.filter(move => {
-            const futureState = this.simulateFutureState('O', move);
-            return this.evaluatePosition(futureState) > 0;
-        });
-        
-        if (strategicMoves.length > 0) {
-            return strategicMoves[Math.floor(Math.random() * strategicMoves.length)];
-        }
-    }
-
+    // Use a simplified evaluation function for other moves
     const moveScores = new Map();
     let bestScore = -Infinity;
 
@@ -1213,7 +1201,7 @@ class InfiniteTicTacToe {
         };
 
         this.simulateMove('O', move);
-        const score = this.minimax(depth - 1, false, -Infinity, Infinity);
+        const score = this.evaluatePosition();
         this.undoMove('O', originalState['O']);
 
         moveScores.set(move, score);
@@ -1225,7 +1213,7 @@ class InfiniteTicTacToe {
         .map(([move, _]) => move);
 
     return bestMoves[Math.floor(Math.random() * bestMoves.length)];
-    }
+}
 
     simulateFutureState(player, move) {
         const futureState = {
