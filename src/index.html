@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Infinite Tic-Tac-Toe</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,0,0">
+    <link rel="stylesheet" href="./css/styles.css">
+    <script src="./js/config.js"></script>
+</head>
+<body>
+    <button id="theme-toggle">
+        <span class="material-symbols-rounded">light_mode</span>
+    </button>
+
+    <button id="back-button">
+        <span class="material-symbols-rounded">arrow_back</span>
+    </button>
+
+    <div class="game-setup" id="game-setup">
+        <h1 class="setup-title">Infinite Tic-Tac-Toe</h1>
+        
+        <div class="setup-row">
+            <label>Game Mode</label>
+            <div class="button-group">
+                <button class="option-button selected" data-mode="ai">VS AI</button>
+                <button class="option-button" data-mode="local">2 Players</button>
+                <button class="option-button" data-mode="multiplayer">Online</button>
+            </div>
+        </div>
+
+        <div class="setup-row visible" id="aiDifficultyRow">
+            <label>AI Difficulty</label>
+            <div class="button-group">
+                <button class="option-button selected" data-difficulty="easy">Easy</button>
+                <button class="option-button" data-difficulty="medium">Medium</button>
+                <button class="option-button" data-difficulty="hard">Hard</button>
+            </div>
+        </div>
+        
+        <div class="setup-row" id="multiplayerOptionsRow">
+            <label>Multiplayer Options</label>
+            <div class="button-group">
+                <button class="option-button" id="hostBtn">Host Game</button>
+                <button class="option-button" id="joinBtn">Join Game</button>
+            </div>
+        </div>
+
+        <div class="setup-row">
+            <div class="slider-container">
+                <div class="slider-info">
+                    <label>Score to Win</label>
+                    <span class="slider-value" id="roundsVal">∞</span>
+                </div>
+                <input type="range" id="roundsSlider" min="0" max="10" value="0" step="1">
+            </div>
+        </div>
+
+        <div class="setup-row">
+            <div class="slider-container">
+                <div class="slider-info">
+                    <label>Time per Turn</label>
+                    <span class="slider-value" id="timeVal">Off</span>
+                </div>
+                <input type="range" id="timeSlider" min="0" max="10" value="0" step="1">
+            </div>
+        </div>
+
+        <div class="setup-row">
+            <label>Highlight Next Removal</label>
+            <div class="button-group">
+                <button class="option-button selected" data-highlight="true">On</button>
+                <button class="option-button" data-highlight="false">Off</button>
+            </div>
+        </div>
+
+        <button id="startBtn">Start Game</button>
+    </div>
+
+    <div class="main-container" id="mainContainer">
+        <div class="scoreboard-container">
+            <div id="scoreboard">
+                <span class="score-x">0</span>
+                <span class="score-divider">|</span>
+                <span class="score-o">0</span>
+            </div>
+        </div>
+        <div id="status"></div>
+        <div id="timer"></div>
+        <div class="board" id="board"></div>
+    </div>
+
+    <div class="overlay" id="backConfirmOverlay">
+        <div class="overlay-content">
+            <h2 id="backConfirmText"></h2>
+            <div class="overlay-buttons">
+                <button class="overlay-button" id="backConfirmYesBtn">Yes</button>
+                <button class="overlay-button" id="backConfirmNoBtn">No</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="gameEndOverlay">
+        <div class="overlay-content">
+            <h2 id="winnerText"></h2>
+            <div class="overlay-buttons">
+                <button class="overlay-button" id="playAgainBtn">Play Again</button>
+                <button class="overlay-button" id="mainMenuBtn">Main Menu</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overlay" id="hostRoomOverlay">
+        <div class="overlay-content">
+            <h2>Room Code</h2>
+            <div class="room-code-display">
+                <span id="roomCodeDisplay"></span>
+            </div>
+            <p>Share this code with your opponent</p>
+            <div class="overlay-buttons">
+                <button class="overlay-button" id="hostBackBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overlay" id="joinRoomOverlay">
+        <div class="overlay-content">
+            <h2>Join Room</h2>
+            <div class="join-input-container">
+                <input type="text" id="roomCodeInput" placeholder="Enter 4-digit code" maxlength="4" pattern="\d{4}">
+            </div>
+            <div class="overlay-buttons">
+                <button class="overlay-button" id="joinRoomBtn">Join</button>
+                <button class="overlay-button" id="joinBackBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html> 

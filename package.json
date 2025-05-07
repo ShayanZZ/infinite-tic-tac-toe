@@ -1,0 +1,19 @@
+{
+  "name": "infinite-tic-tac-toe",
+  "version": "1.0.0",
+  "description": "A modern implementation of Tic-Tac-Toe with infinite gameplay",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "vercel deploy --prod"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4"
+  },
+  "devDependencies": {
+    "vercel": "^32.3.0",
+    "vite": "^6.3.3"
+  }
+}
