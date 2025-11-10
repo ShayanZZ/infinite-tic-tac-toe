@@ -23,20 +23,38 @@ module.exports = async (req, res) => {
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Perform a simple query to keep the database active
+    // Perform multiple operations to ensure database activity
+    // 1. Count query to ensure database is responsive
+    const { count, error: countError } = await supabase
+      .from('game_rooms')
+      .select('*', { count: 'exact', head: true });
+
+    if (countError) {
+      console.error('Error counting rooms in Supabase:', countError);
+      return res.status(500).json({ 
+        error: 'Failed to ping Supabase',
+        details: countError.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // 2. Perform a select query to ensure read operations work
     const { data, error } = await supabase
       .from('game_rooms')
-      .select('room_code')
+      .select('room_code, updated_at')
+      .order('updated_at', { ascending: false })
       .limit(1);
 
     if (error) {
-      console.error('Error pinging Supabase:', error);
+      console.error('Error querying Supabase:', error);
       return res.status(500).json({ 
         error: 'Failed to ping Supabase',
         details: error.message,
         timestamp: new Date().toISOString()
       });
     }
+
+    console.log(`Supabase ping successful - Found ${count} rooms, latest room:`, data?.[0]?.room_code || 'none');
 
     // Perform database maintenance - clean up old rooms
     await cleanupOldRooms(supabase);

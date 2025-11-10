@@ -307,7 +307,14 @@ export default class Game {
         
         setTimeout(() => {
             const winner = this.currentPlayer;
-            this.scores[winner]++;
+            
+            // In multiplayer mode, if we already sent the win update in makeMove,
+            // the score was already incremented in updateGameState(), so don't increment again
+            // Otherwise, increment the score here
+            if (!(this.gameMode === 'multiplayer' && this.sentWinUpdate)) {
+                this.scores[winner]++;
+            }
+            
             this.ui.renderScoresWithAnimation(winner);
             
             // Check if game should end due to score limit

@@ -19,6 +19,8 @@ export default class Multiplayer {
         this.stateReconciliationInterval = null;
         this.opponentWantsPlayAgain = false; // Flag to track if opponent wants to play again before overlay appears
         this.playAgainDeadlockTimer = null; // Timer to detect and resolve Play Again deadlocks
+        this.animatedMoves = new Set(); // Track which moves have been animated to prevent re-animation
+        this.roundStarter = 'X'; // Track who should start the next round (alternates)
         
         // Initialize Supabase client
         this.initSupabase();
@@ -287,37 +289,74 @@ export default class Multiplayer {
             : 0;
         
         const now = Date.now();
-        const dayInMillis = 24 * 60 * 60 * 1000;
+        const sixHoursInMillis = 6 * 60 * 60 * 1000;
         
-        // If last ping was more than 3 days ago, ping now
-        if (now - lastPingTime > (3 * dayInMillis)) {
+        // If last ping was more than 6 hours ago, ping immediately
+        // This ensures we ping at least every 6 hours when someone visits
+        if (now - lastPingTime > sixHoursInMillis) {
+            console.log('Last ping was more than 6 hours ago, pinging now');
             this.pingSupabase();
         }
         
-        // Set up periodic ping every 3 days
-        setInterval(() => this.pingSupabase(), 3 * dayInMillis);
+        // Set up periodic ping every 6 hours to ensure frequent activity
+        // This keeps the database active even if cron job fails
+        setInterval(() => {
+            const lastPing = localStorage.getItem('lastSupabasePing') 
+                ? parseInt(localStorage.getItem('lastSupabasePing'))
+                : 0;
+            const timeSinceLastPing = Date.now() - lastPing;
+            
+            // Only ping if it's been at least 6 hours since last ping
+            if (timeSinceLastPing >= sixHoursInMillis) {
+                console.log('Periodic ping triggered (6 hours elapsed)');
+                this.pingSupabase();
+            }
+        }, sixHoursInMillis);
     }
     
     /**
      * Ping Supabase to keep the database active
      */
     async pingSupabase() {
-        if (!this.supabase) return;
+        if (!this.supabase) {
+            console.warn('Supabase client not initialized, skipping ping');
+            return;
+        }
         
         try {
             console.log('Pinging Supabase to keep database active');
             
-            // Just make a simple query to keep the connection active
-            await this.supabase
+            // Perform multiple operations to ensure database activity
+            // 1. Count query to ensure database is responsive
+            const { count, error: countError } = await this.supabase
                 .from('game_rooms')
-                .select('room_code')
+                .select('*', { count: 'exact', head: true });
+            
+            if (countError) {
+                console.error('Error counting rooms in Supabase ping:', countError);
+                // Don't update last ping time on error, so we'll retry sooner
+                return;
+            }
+            
+            // 2. Perform a select query with ordering to ensure read operations work
+            const { data, error } = await this.supabase
+                .from('game_rooms')
+                .select('room_code, updated_at')
+                .order('updated_at', { ascending: false })
                 .limit(1);
             
-            // Update the last ping time
+            if (error) {
+                console.error('Error in Supabase ping query:', error);
+                // Don't update last ping time on error, so we'll retry sooner
+                return;
+            }
+            
+            // Update the last ping time only on success
             localStorage.setItem('lastSupabasePing', Date.now().toString());
-            console.log('Supabase ping successful');
+            console.log(`Supabase ping successful at ${new Date().toISOString()} - Found ${count} rooms`);
         } catch (error) {
             console.error('Error pinging Supabase:', error);
+            // Don't update last ping time on error
         }
     }
 
@@ -706,7 +745,15 @@ export default class Multiplayer {
             }
             
             if (state.scores) {
+                // Always use server scores - they are the source of truth
                 this.game.scores = JSON.parse(JSON.stringify(state.scores));
+                console.log('Scores synced from server:', JSON.stringify(this.game.scores));
+            }
+            
+            // Sync round starter from server if available
+            if (state.roundStarter) {
+                this.roundStarter = state.roundStarter;
+                console.log('Round starter synced from server:', this.roundStarter);
             }
             
             // Check for fullReset flag - handle before other updates but after direct reset
@@ -715,11 +762,26 @@ export default class Multiplayer {
                 
                 // Force all state to be cleared
                 this.game.playerMoves = { X: [], O: [] };
-                this.game.currentPlayer = 'X';
+                // Use roundStarter from server if available, otherwise default to X
+                this.game.currentPlayer = state.roundStarter || 'X';
+                if (state.roundStarter) {
+                    this.roundStarter = state.roundStarter;
+                }
                 this.game.gameActive = true;
                 this.game.winningCombination = null;
-                this.game.scores = { 'X': 0, 'O': 0 };
+                // Only reset scores if this is a match reset (not a round reset)
+                // For round resets, scores should be preserved from state.scores
+                if (state.scores) {
+                    this.game.scores = JSON.parse(JSON.stringify(state.scores));
+                } else {
+                    // If no scores in state, only reset if this is a true full reset (match end)
+                    // For now, preserve scores unless explicitly reset
+                    // this.game.scores = { 'X': 0, 'O': 0 };
+                }
                 this.playAgainChoices = { host: false, guest: false };
+                
+                // Clear animated moves
+                this.animatedMoves.clear();
                 
                 // Make sure game end overlay is closed
                 if (this.game.ui.gameEndOverlay.style.display === 'flex') {
@@ -976,44 +1038,10 @@ export default class Multiplayer {
                 // Both players have acknowledged the game state, so we can be confident in the current_player
                 console.log('Both players have acknowledged game start - syncing turn state');
                 
-                // Update turn state without needing to wait for deadlock
+                // Update turn state to match server state
                 this.game.currentPlayer = state.current_player || 'X';
                 this.game.ui.updateStatus();
                 return;
-            }
-            
-            // Get expected turn state based on player role
-            const shouldBeMyTurn = this.isPlayerTurn(state.current_player);
-            
-            // If deadlock detected (Opponent's Turn + no new moves for 5 seconds)
-            if (!shouldBeMyTurn && this.lastMoveTime && (Date.now() - this.lastMoveTime > 5000)) {
-                console.log('Potential deadlock detected - attempting recovery');
-                
-                // Force recovery by claiming turn if we're the host
-                if (this.isHost) {
-                    console.log('Host forcing turn recovery');
-                    this.game.currentPlayer = 'X'; // Host is always X
-                    
-                    // Send update with both acknowledgment flags
-                    const updatePayload = {
-                        current_state: {
-                            player_moves: this.game.playerMoves,
-                            current_player: 'X', 
-                            gameActive: true,
-                            host_acknowledged: true,
-                            guest_acknowledged: true,
-                            timestamp: Date.now()
-                        }
-                    };
-                    
-                    this.supabase
-                        .from('game_rooms')
-                        .update(updatePayload)
-                        .eq('room_code', this.roomCode);
-                        
-                    // Update UI immediately
-                    this.game.ui.updateStatus();
-                }
             }
             
             // Update last move timestamp if the moves have changed
@@ -1024,6 +1052,12 @@ export default class Multiplayer {
             if (movesCount !== this.lastMovesCount) {
                 this.lastMoveTime = Date.now();
                 this.lastMovesCount = movesCount;
+            }
+            
+            // Sync turn state from server if available
+            if (state.current_player) {
+                this.game.currentPlayer = state.current_player;
+                this.game.ui.updateStatus();
             }
         }
     }
@@ -1044,6 +1078,8 @@ export default class Multiplayer {
         this.lastStateRefresh = Date.now();
         this.lastMoveTime = Date.now();
         this.lastMovesCount = 0;
+        this.animatedMoves = new Set();
+        this.lastRenderedMovesSignature = '';
     }
     
     /**
@@ -1066,6 +1102,15 @@ export default class Multiplayer {
         
         // Determine the winner - opposite of the local player's role
         const winner = this.isHost ? 'O' : 'X'; // If host, winner is O; if guest, winner is X
+        
+        // The score should already be synced from the server state in handleGameUpdate
+        // But ensure it's at least 1 if it's still 0 (fallback)
+        if (this.game.scores[winner] === undefined || this.game.scores[winner] === 0) {
+            // This should not happen if scores are properly synced, but as a safety measure:
+            const previousScore = this.game.scores[winner] || 0;
+            this.game.scores[winner] = previousScore + 1;
+            console.log(`Fallback: Incremented remote winner ${winner} score from ${previousScore} to ${this.game.scores[winner]}`);
+        }
         
         // IMMEDIATELY show the score animation for the winner
         this.game.ui.renderScoresWithAnimation(winner);
@@ -1109,21 +1154,32 @@ export default class Multiplayer {
     scheduleGameReset() {
         console.log('Scheduling game reset');
         setTimeout(() => {
-            // Reset the game state
+            // Reset the game state (but preserve scores!)
             this.game.playerMoves = { X: [], O: [] };
             this.game.winningCombination = null;
             this.game.gameActive = true;
             
-            // Start a new round
-            this.game.currentPlayer = this.isHost ? 'X' : 'O'; // Alternate starting player
-            
-            // Update the board
-            this.game.ui.initBoard();
-            this.game.ui.updateStatus();
-            
-            // If host, send the initial state update
+            // Only host determines and sends the new starting player
+            // Guest will receive it from the server
             if (this.isHost) {
+                // Alternate starting player - if host started last round, guest starts this round
+                // The roundStarter alternates: X -> O -> X -> O...
+                this.roundStarter = this.roundStarter === 'X' ? 'O' : 'X';
+                this.game.currentPlayer = this.roundStarter;
+                
+                // Clear animated moves for the new round
+                this.animatedMoves.clear();
+                
+                // Update the board
+                this.game.ui.initBoard();
+                this.game.ui.updateStatus();
+                
+                // Send the initial state update with the new starting player and preserved scores
                 setTimeout(() => this.updateGameState(null), 100);
+            } else {
+                // Guest: Clear animated moves and wait for server state
+                this.animatedMoves.clear();
+                // The board and current player will be updated when we receive the server state
             }
         }, 1000);
     }
@@ -1182,10 +1238,20 @@ export default class Multiplayer {
         const playerMoves = JSON.parse(JSON.stringify(this.game.playerMoves));
         console.log('Rendering player moves:', JSON.stringify(playerMoves));
         
+        // Calculate current moves signature to detect if moves have changed
+        const currentMovesSignature = JSON.stringify(playerMoves);
+        const movesChanged = this.lastRenderedMovesSignature !== currentMovesSignature;
+        
         // Clear the board completely first - properly remove all classes
         for (let i = 0; i < cells.length; i++) {
             cells[i].textContent = '';
             cells[i].classList.remove('x', 'o', 'mark-animation', 'dim', 'winning', 'draw');
+        }
+        
+        // If moves have changed, reset the animated moves set
+        if (movesChanged) {
+            this.animatedMoves.clear();
+            this.lastRenderedMovesSignature = currentMovesSignature;
         }
         
         // If there's no game active or we're in a winning state, just render the final state
@@ -1268,16 +1334,21 @@ export default class Multiplayer {
                     cell.classList.add(className);
                     
                     // Add animation to the last move or to a winning move if we need to ensure animation
+                    // Only animate if this move hasn't been animated before
+                    const moveKey = `${symbol}-${index}`;
                     const isWinningCell = this.game.winningCombination && 
                                         this.game.winningCombination.includes(index);
                     
-                    if (index === lastMoveIndex && symbol === lastMovePlayer) {
-                        cell.classList.add('mark-animation');
-                    } else if (ensureWinningAnimation && isWinningCell) {
-                        // If we need to show a winning animation and this is a winning cell,
-                        // add animation if it's the first winning cell we've encountered
-                        cell.classList.add('mark-animation');
-                        ensureWinningAnimation = false;  // Only animate one cell
+                    if ((index === lastMoveIndex && symbol === lastMovePlayer) || 
+                        (ensureWinningAnimation && isWinningCell)) {
+                        // Only add animation if this move hasn't been animated yet
+                        if (!this.animatedMoves.has(moveKey)) {
+                            cell.classList.add('mark-animation');
+                            this.animatedMoves.add(moveKey);
+                            if (ensureWinningAnimation && isWinningCell) {
+                                ensureWinningAnimation = false;  // Only animate one cell
+                            }
+                        }
                     }
                 }
             }
@@ -1410,12 +1481,21 @@ export default class Multiplayer {
                 O: Array.isArray(this.game.playerMoves.O) ? JSON.parse(JSON.stringify(this.game.playerMoves.O)) : []
             };
             
-            // Create update payload with current game state
+            // If there's a matchWinner, increment their score BEFORE creating the payload
+            // This ensures the incremented score is included in the update
+            if (matchWinner) {
+                const currentScore = this.game.scores[matchWinner] || 0;
+                this.game.scores[matchWinner] = currentScore + 1;
+                console.log(`Incremented score for ${matchWinner} from ${currentScore} to ${this.game.scores[matchWinner]}`);
+            }
+            
+            // Create update payload with current game state (scores now include the increment if matchWinner was set)
             const updatePayload = {
                 current_state: {
                     player_moves: playerMoves,
                     current_player: this.game.currentPlayer,
                     scores: JSON.parse(JSON.stringify(this.game.scores)),
+                    roundStarter: this.roundStarter, // Include round starter for synchronization
                     timestamp: Date.now(),
                     gameActive: this.game.gameActive
                 },
@@ -1429,8 +1509,10 @@ export default class Multiplayer {
                 updatePayload.current_state.gameActive = true;
                 updatePayload.current_state.winningCombination = null;
                 updatePayload.current_state.playAgainChoices = { host: false, guest: false };
-                updatePayload.current_state.scores = { 'X': 0, 'O': 0 };
+                // DO NOT reset scores on full reset - preserve them!
+                // updatePayload.current_state.scores = { 'X': 0, 'O': 0 }; // REMOVED
                 updatePayload.current_state.player_moves = { 'X': [], 'O': [] };
+                updatePayload.current_state.roundStarter = this.roundStarter; // Include round starter
                 updatePayload.status = 'playing';
                 
                 // Skip other flags when doing a full reset to avoid conflicts
@@ -1846,12 +1928,20 @@ export default class Multiplayer {
         // Clear any timers
         this.game.clearTimers();
         
-        // Force clear all game state
+        // Force clear all game state (but preserve scores!)
         this.game.gameActive = true; // Set to true immediately to prevent state confusion
         this.game.winningCombination = null;
         this.game.playerMoves = { X: [], O: [] };
-        this.game.currentPlayer = 'X';
-        this.game.scores = { 'X': 0, 'O': 0 };
+        
+        // Alternate starting player for the new round
+        this.roundStarter = this.roundStarter === 'X' ? 'O' : 'X';
+        this.game.currentPlayer = this.roundStarter;
+        
+        // DO NOT reset scores - they should persist across rounds!
+        // this.game.scores = { 'X': 0, 'O': 0 }; // REMOVED - preserve scores
+        
+        // Clear animated moves
+        this.animatedMoves.clear();
         
         // Close end game overlay if open - do this immediately
         if (this.game.ui.gameEndOverlay.style.display === 'flex') {
