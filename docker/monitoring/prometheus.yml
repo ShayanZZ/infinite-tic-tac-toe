@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Scrape Prometheus itself
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  # Basic HTTP availability/latency check for the Infinite Tic Tac Toe app
+  # This does not require the app to expose /metrics.
+  - job_name: "infinite-ttt-app-http"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://infinite-ttt-app-monitoring:80/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # If in future the app exposes /metrics, enable this:
+  # - job_name: "infinite-ttt-app-metrics"
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ["infinite-ttt-app-monitoring:80"]

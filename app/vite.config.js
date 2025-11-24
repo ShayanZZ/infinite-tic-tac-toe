@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite';
 import { loadEnv } from 'vite';
+import path from 'path';
 
 export default defineConfig(({ command, mode }) => {
-  // Load env file based on `mode` in the current directory.
+  // Load env file based on `mode` in the parent directory.
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, path.resolve(process.cwd(), '..'), '');
 
   return {
     root: 'src',
@@ -24,4 +25,4 @@ export default defineConfig(({ command, mode }) => {
       'import.meta.env.VITE_SUPABASE_KEY': JSON.stringify(env.VITE_SUPABASE_KEY),
     }
   };
-}); 
+});

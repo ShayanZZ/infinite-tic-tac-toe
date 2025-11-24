@@ -1,0 +1,42 @@
+networks:
+  web:
+    external: false
+
+services:
+  app:
+    image: shayanzzzz/infinite-tic-tac-toe:latest
+    container_name: infinite-ttt-app
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.infinite-ttt.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.infinite-ttt.entrypoints=game"
+      - "traefik.http.services.infinite-ttt.loadbalancer.server.port=80"
+
+  traefik:
+    image: traefik:latest
+    container_name: infinite-ttt-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.game.address=:8080"
+      - "--entrypoints.dashboard.address=:8081"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.dashboard.entrypoints=dashboard"
+      - "traefik.http.routers.dashboard.service=api@internal"
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - web
+

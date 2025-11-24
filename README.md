@@ -1,133 +1,162 @@
 # Infinite Tic-Tac-Toe
 
-A modern, modular implementation of the classic Tic-Tac-Toe game with infinite gameplay.
+A modern, strategic, infinite variation of the classic Tic-Tac-Toe game. Built with Vanilla JS frontend, Supabase backend integration, and DevOps setup including Docker and Kubernetes with monitoring.
 
-## Features
+## 🚀 Features
 
-- Play against AI or another player
-- Three AI difficulty levels
-- Customizable time limits per turn
-- Configurable win conditions
-- Dark/light theme support
-- Responsive design
-- Infinite gameplay - each player can only have 3 marks on the board
-- Online multiplayer mode using Supabase
-- Automatic database maintenance and cleanup
+-   **Infinite Gameplay**: The game introduces a strategic twist — each player can only have **3 marks** on the board at a time. When you place a 4th mark, your oldest mark disappears! This prevents draws and keeps the game dynamic.
+-   **Real-time Multiplayer**: Play against friends in real-time. Game state is synchronized instantly using **Supabase** real-time subscriptions.
+-   **Smart AI**: Challenge yourself against an AI opponent with adjustable difficulty levels.
+-   **Modern UI/UX**: A sleek, responsive interface built with Vanilla JavaScript and CSS3, featuring smooth animations and theme support.
+-   **Full Observability**: Comprehensive monitoring stack included (Prometheus, Grafana, Node Exporter, Blackbox Exporter)
+-   **Containerized & Orchestrated**: Fully Dockerized application with Kubernetes manifests for scalable deployment.
 
-## Project Structure
+## 🛠 Tech Stack
 
-The codebase is organized into the following structure:
+### Frontend
+-   **Core**: HTML5, CSS3, Vanilla JavaScript (ES6+)
+-   **Build Tool**: [Vite](https://vitejs.dev/)
+-   **State Management**: Custom module-based architecture
 
-```
-root/
-├── index.html
-├── css/
-│   └── styles.css
-├── js/
-│   ├── main.js
-│   ├── config.js
-│   └── modules/
-│       ├── ai.js
-│       ├── game.js
-│       ├── theme.js
-│       ├── multiplayer.js
-│       └── ui.js
-├── api/
-│   └── cron.js
-├── vite.config.js
-├── vercel.json
-├── .env.example
-├── .gitignore
-└── package.json
-```
+### Backend & Infrastructure
+-   **Database & Real-time**: [Supabase](https://supabase.com/)
+-   **Containerization**: [Docker](https://www.docker.com/)
+-   **Orchestration**: [Kubernetes](https://kubernetes.io/)
+-   **Reverse Proxy**: [Traefik](https://traefik.io/)
 
-### File Descriptions
+### Monitoring
+-   **Metrics Collection**: [Prometheus](https://prometheus.io/)
+-   **Visualization**: [Grafana](https://grafana.com/)
+-   **Exporters**: Node Exporter, Blackbox Exporter
 
-- `index.html` - Main HTML structure
-- `css/styles.css` - All CSS styles
-- `js/main.js` - Entry point for JavaScript
-- `js/config.js` - Fallback configuration for static file servers
-- `js/modules/ai.js` - AI logic and strategies
-- `js/modules/game.js` - Core game logic
-- `js/modules/theme.js` - Theme management
-- `js/modules/ui.js` - UI-related functionality
-- `js/modules/multiplayer.js` - Online multiplayer functionality
-- `api/cron.js` - Serverless function for database maintenance
-- `vite.config.js` - Vite build tool configuration
-- `vercel.json` - Vercel deployment and cron job configuration
-- `.env.example` - Template for environment variables
+## 📋 Prerequisites
 
-## Supabase Setup for Multiplayer
+-   **Node.js** (v18+ recommended)
+-   **npm** (v9+)
+-   **Docker** & **Docker Compose**
+-   **Kubernetes CLI (kubectl)** (optional)
+
+## 🗄️ Supabase Setup for Multiplayer
 
 To use the multiplayer feature, you need to set up Supabase:
 
-1. Create a Supabase account at [supabase.com](https://supabase.com)
-2. Create a new project in Supabase
-3. Create a `game_rooms` table with the following columns:
-   - `id` (primary key)
-   - `room_code` (string)
-   - `host_id` (string)
-   - `guest_id` (string, nullable)
-   - `settings` (json)
-   - `current_state` (json)
-   - `created_at` (timestamp with timezone)
-4. Get your Supabase URL and anon key from your project settings
+1.  **Create Account**: Create a Supabase account at [supabase.com](https://supabase.com).
+2.  **New Project**: Create a new project in Supabase.
+3.  **Database Setup**: Create a `game_rooms` table with the following columns:
+    -   `id` (primary key)
+    -   `room_code` (string)
+    -   `host_id` (string)
+    -   `guest_id` (string, nullable)
+    -   `settings` (json)
+    -   `current_state` (json)
+    -   `created_at` (timestamp with timezone)
+4.  **Credentials**: Get your Supabase URL and anon key from your project settings.
 
-## Automatic Maintenance
-
-The project includes automatic maintenance features to keep the Supabase instance healthy:
-
-### Server-Side Maintenance (Vercel)
-
-- Daily cron job that pings the Supabase database to prevent it from pausing on the free tier
-- Automatically cleans up game rooms older than 24 hours to prevent database storage limits from being reached
-- Runs every day at midnight UTC via Vercel's built-in cron functionality
-
-### Client-Side Maintenance
-
-- Browser-based cleanup of old game rooms when users visit the site
-- Local storage tracking of ping times to minimize unnecessary database operations
-
-## Local Development
+## 🔧 Local Development
 
 There are two ways to run the project locally:
 
 ### Method 1: Using a Static Server (Simple)
 
-1. **Edit `js/config.js` with your Supabase credentials:**
-   ```javascript
-   window.SUPABASE_URL = "your_supabase_project_url";
-   window.SUPABASE_KEY = "your_supabase_anon_key";
-   ```
+1.  Edit `app/src/js/config.js` with your Supabase credentials:
+    ```javascript
+    window.SUPABASE_URL = "your_supabase_project_url";
+    window.SUPABASE_KEY = "your_supabase_anon_key";
+    ```
+2.  Serve the files using a local server:
+    ```bash
+    # Using Python
+    python -m http.server
 
-2. **Serve the files using a local server:**
-   ```bash
-   # Using Python
-   python -m http.server
-   
-   # OR using Node.js
-   npx serve
-   
-   # OR using http-server
-   npx http-server
-   ```
+    # OR using Node.js
+    npx serve
 
-3. **Access the site at http://localhost:8000 (or similar)**
+    # OR using http-server
+    npx http-server
+    ```
+3.  Access the site at `http://localhost:8000`
 
 ### Method 2: Using Vite (Recommended)
 
-1. **Create a `.env.local` file in the project root:**
-   ```
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_KEY=your_supabase_anon_key
-   ```
+1.  Create a `.env` file in the project root:
+    ```env
+    VITE_SUPABASE_URL=your_supabase_url
+    VITE_SUPABASE_KEY=your_supabase_anon_key
+    ```
+2.  Install dependencies and start development server:
+    ```bash
+    cd app
+    npm install
+    npm run dev
+    ```
+3.  Access the site at `http://localhost:5173`.
 
-2. **Install dependencies and start development server:**
-   ```bash
-   npm install
-   npm run dev
-   ```
+> **Note**: This method is preferred as environment variables are never exposed in your code.
 
-3. **Access the site at http://localhost:5173 (or similar)**
+## 🐳 Running with Docker
 
-> This method is preferred as environment variables are never exposed in your code. 
+### Application Stack
+Run the game and Traefik reverse proxy:
+```bash
+cd docker
+docker-compose up -d --build
+```
+-   **Game**: `http://localhost:8080`
+-   **Traefik Dashboard**: `http://localhost:8081`
+
+### Monitoring Stack
+Run the full monitoring suite:
+```bash
+cd docker
+docker-compose -f docker-compose.prometheus-grafana.yml up -d
+```
+-   **Grafana**: `http://localhost:3000` (Default login: `admin` / `admin`)
+-   **Prometheus**: `http://localhost:9090`
+
+## ☸️ Deploying to Kubernetes
+
+Deploy the application and monitoring resources to a Kubernetes cluster:
+
+```bash
+cd k8s
+# Apply core resources
+kubectl apply -f namespace.yaml
+kubectl apply -f secret.yml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f ingress.yaml
+
+# Apply monitoring resources
+kubectl apply -f monitoring/
+```
+
+## 📂 Project Structure
+
+```
+├── app/                        # Frontend Application
+│   ├── src/
+│   │   ├── js/
+│   │   │   ├── modules/        # Game Logic Modules
+│   │   │   │   ├── game.js     # Core game rules & state
+│   │   │   │   ├── ai.js       # AI opponent logic
+│   │   │   │   ├── multiplayer.js # Supabase integration
+│   │   │   │   ├── ui.js       # DOM manipulation
+│   │   │   │   └── theme.js    # Theme management
+│   │   │   └── main.js         # Entry point
+│   │   └── css/                # Styles
+│   ├── public/                 # Static assets
+│   └── vite.config.js          # Build configuration
+├── docker/                     # Docker Configuration
+│   ├── monitoring/             # Prometheus & Grafana configs
+│   ├── docker-compose.yml      # App stack
+│   └── docker-compose.prometheus-grafana.yml # Monitoring stack
+├── k8s/                        # Kubernetes Manifests
+│   ├── monitoring/             # K8s monitoring resources
+│   ├── deployment.yaml         # App deployment
+│   └── ingress.yaml            # Ingress configuration
+└── README.md                   # Project Documentation
+```
+
+## 📄 License
+
+[MIT](LICENSE)

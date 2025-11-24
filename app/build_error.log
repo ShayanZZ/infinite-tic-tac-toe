@@ -1,0 +1,16 @@
+
+> infinite-tic-tac-toe@1.0.0 build
+> vite build
+
+You are using Node.js 18.20.8. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.
+vite v7.2.4 building client environment for production...
+<script src="/config.js"> in "/index.html" can't be bundled without type="module" attribute
+transforming...
+✓ 10 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                  5.49 kB │ gzip:  1.34 kB
+../dist/assets/icon-Bi7hYPyX.png   85.74 kB
+../dist/assets/index-dHQL5Zqw.css   9.51 kB │ gzip:  2.51 kB
+../dist/assets/index-C4a0ZOX3.js   59.06 kB │ gzip: 12.97 kB │ map: 205.83 kB
+✓ built in 1.19s

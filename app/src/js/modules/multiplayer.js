@@ -79,7 +79,15 @@ export default class Multiplayer {
         // Generate a unique player ID if one doesn't exist
         this.playerId = localStorage.getItem('playerId');
         if (!this.playerId) {
-            this.playerId = crypto.randomUUID();
+            if (crypto.randomUUID) {
+                this.playerId = crypto.randomUUID();
+            } else {
+                // Fallback for non-secure contexts
+                this.playerId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
             localStorage.setItem('playerId', this.playerId);
         }
         
@@ -256,7 +264,7 @@ export default class Multiplayer {
             const { count } = await this.supabase
                 .from('game_rooms')
                 .select('*', { count: 'exact', head: true })
-                .lt('updated_at', new Date(cutoffTime).toISOString());
+                .lt('created_at', new Date(cutoffTime).toISOString());
             
             console.log(`Found ${count} old game rooms to clean up`);
             
@@ -265,7 +273,7 @@ export default class Multiplayer {
                 const { error } = await this.supabase
                     .from('game_rooms')
                     .delete()
-                    .lt('updated_at', new Date(cutoffTime).toISOString());
+                    .lt('created_at', new Date(cutoffTime).toISOString());
                 
                 if (error) {
                     console.error('Error cleaning up old rooms:', error);
@@ -341,8 +349,8 @@ export default class Multiplayer {
             // 2. Perform a select query with ordering to ensure read operations work
             const { data, error } = await this.supabase
                 .from('game_rooms')
-                .select('room_code, updated_at')
-                .order('updated_at', { ascending: false })
+                .select('room_code, created_at')
+                .order('created_at', { ascending: false })
                 .limit(1);
             
             if (error) {
@@ -2222,4 +2230,4 @@ export default class Multiplayer {
             }
         }
     }
-} 
+}
