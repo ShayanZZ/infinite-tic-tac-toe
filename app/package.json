@@ -11,14 +11,14 @@
     "deploy": "vercel deploy --prod"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.84.0"
+    "@supabase/supabase-js": "^2.86.2"
   },
   "devDependencies": {
-    "vercel": "^48.10.10",
-    "vite": "7.2.4"
+    "vercel": "^49.1.1",
+    "vite": "^7.2.6"
   },
   "engines": {
     "node": "22.x",
-    "npm": "11.6.3"
+    "npm": "11.6.4"
   }
 }
