@@ -1,8 +1,8 @@
-// Import Supabase SDK for Node.js
-const { createClient } = require('@supabase/supabase-js');
+// Import Supabase SDK for Node.js (ESM syntax)
+import { createClient } from '@supabase/supabase-js';
 
 // This endpoint will be called by Vercel Cron Job
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
     // Log the request for debugging
     console.log('Cron job triggered:', new Date().toISOString());
@@ -23,46 +23,73 @@ module.exports = async (req, res) => {
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Perform multiple operations to ensure database activity
-    // 1. Count query to ensure database is responsive
+    // Generate a unique room code for the keep-alive ping
+    const keepAliveRoomCode = 'KEEPALIVE_' + Date.now();
+
+    // IMPORTANT: Perform a WRITE operation to truly keep the database active
+    // Supabase considers INSERT/UPDATE/DELETE as activity, not just SELECT
+    const { data: insertData, error: insertError } = await supabase
+      .from('game_rooms')
+      .insert({
+        room_code: keepAliveRoomCode,
+        host_id: 'cron-keepalive',
+        status: 'keepalive',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select();
+
+    if (insertError) {
+      console.error('Error inserting keep-alive room:', insertError);
+      return res.status(500).json({ 
+        error: 'Failed to insert keep-alive room',
+        details: insertError.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    console.log('Keep-alive room created:', keepAliveRoomCode);
+
+    // Immediately delete the keep-alive room (another WRITE operation)
+    const { error: deleteError } = await supabase
+      .from('game_rooms')
+      .delete()
+      .eq('room_code', keepAliveRoomCode);
+
+    if (deleteError) {
+      console.error('Error deleting keep-alive room:', deleteError);
+      // Don't return error here, as the main goal (INSERT) was achieved
+    } else {
+      console.log('Keep-alive room deleted successfully');
+    }
+
+    // Also clean up any old keep-alive rooms that might have been left behind
+    const { error: cleanupKeepAliveError } = await supabase
+      .from('game_rooms')
+      .delete()
+      .eq('status', 'keepalive');
+
+    if (cleanupKeepAliveError) {
+      console.error('Error cleaning up old keep-alive rooms:', cleanupKeepAliveError);
+    }
+
+    // Perform database maintenance - clean up old game rooms
+    await cleanupOldRooms(supabase);
+
+    // Count remaining rooms for logging
     const { count, error: countError } = await supabase
       .from('game_rooms')
       .select('*', { count: 'exact', head: true });
 
-    if (countError) {
-      console.error('Error counting rooms in Supabase:', countError);
-      return res.status(500).json({ 
-        error: 'Failed to ping Supabase',
-        details: countError.message,
-        timestamp: new Date().toISOString()
-      });
+    if (!countError) {
+      console.log(`Database active - ${count} rooms in database`);
     }
-
-    // 2. Perform a select query to ensure read operations work
-    const { data, error } = await supabase
-      .from('game_rooms')
-      .select('room_code, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.error('Error querying Supabase:', error);
-      return res.status(500).json({ 
-        error: 'Failed to ping Supabase',
-        details: error.message,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    console.log(`Supabase ping successful - Found ${count} rooms, latest room:`, data?.[0]?.room_code || 'none');
-
-    // Perform database maintenance - clean up old rooms
-    await cleanupOldRooms(supabase);
 
     // Return success response
     return res.status(200).json({ 
       success: true, 
-      message: 'Supabase pinged successfully',
+      message: 'Supabase keep-alive successful (INSERT + DELETE performed)',
+      activeRooms: count || 0,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -73,7 +100,7 @@ module.exports = async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-};
+}
 
 /**
  * Clean up old game rooms to save database space
@@ -116,4 +143,4 @@ async function cleanupOldRooms(supabase, maxAgeHours = 24) {
   } catch (error) {
     console.error('Error during database maintenance:', error);
   }
-} 
+}
