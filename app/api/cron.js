@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     // Check if credentials are available
     if (!supabaseUrl || !supabaseKey) {
       console.error('Missing Supabase credentials in environment variables');
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Missing Supabase credentials',
         timestamp: new Date().toISOString()
       });
@@ -23,8 +23,8 @@ export default async function handler(req, res) {
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Generate a unique room code for the keep-alive ping
-    const keepAliveRoomCode = 'KEEPALIVE_' + Date.now();
+    // Generate a unique 4-digit room code for the keep-alive ping
+    const keepAliveRoomCode = String(Math.floor(1000 + Math.random() * 9000));
 
     // IMPORTANT: Perform a WRITE operation to truly keep the database active
     // Supabase considers INSERT/UPDATE/DELETE as activity, not just SELECT
@@ -33,14 +33,14 @@ export default async function handler(req, res) {
       .from('game_rooms')
       .insert({
         room_code: keepAliveRoomCode,
-        host_id: 'cron-keepalive',
+        host_id: 'cron',
         created_at: new Date().toISOString()
       })
       .select();
 
     if (insertError) {
       console.error('Error inserting keep-alive room:', insertError);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Failed to insert keep-alive room',
         details: insertError.message,
         timestamp: new Date().toISOString()
@@ -62,11 +62,11 @@ export default async function handler(req, res) {
       console.log('Keep-alive room deleted successfully');
     }
 
-    // Also clean up any old keep-alive rooms that might have been left behind
+    // Clean up any rooms created by cron (by host_id)
     const { error: cleanupKeepAliveError } = await supabase
       .from('game_rooms')
       .delete()
-      .eq('host_id', 'cron-keepalive');
+      .eq('host_id', 'cron');
 
     if (cleanupKeepAliveError) {
       console.error('Error cleaning up old keep-alive rooms:', cleanupKeepAliveError);
@@ -85,15 +85,15 @@ export default async function handler(req, res) {
     }
 
     // Return success response
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       message: 'Supabase keep-alive successful (INSERT + DELETE performed)',
       activeRooms: count || 0,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Unexpected error in cron job:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Unexpected error',
       details: error.message,
       timestamp: new Date().toISOString()
@@ -109,31 +109,31 @@ export default async function handler(req, res) {
 async function cleanupOldRooms(supabase, maxAgeHours = 24) {
   try {
     console.log('Running database maintenance - cleaning up old rooms');
-    
+
     // Calculate the cutoff timestamp (current time - maxAgeHours)
     const cutoffTime = Date.now() - (maxAgeHours * 60 * 60 * 1000);
-    
+
     // First get count of old rooms (for logging purposes)
     // Using created_at instead of updated_at (which doesn't exist in schema)
     const { count, error: countError } = await supabase
       .from('game_rooms')
       .select('*', { count: 'exact', head: true })
       .lt('created_at', new Date(cutoffTime).toISOString());
-    
+
     if (countError) {
       console.error('Error counting old rooms:', countError);
       return;
     }
-    
+
     console.log(`Found ${count} old game rooms to clean up`);
-    
+
     // Delete old rooms
     if (count > 0) {
       const { error } = await supabase
         .from('game_rooms')
         .delete()
         .lt('created_at', new Date(cutoffTime).toISOString());
-      
+
       if (error) {
         console.error('Error cleaning up old rooms:', error);
       } else {
