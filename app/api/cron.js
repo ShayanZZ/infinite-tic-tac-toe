@@ -28,14 +28,13 @@ export default async function handler(req, res) {
 
     // IMPORTANT: Perform a WRITE operation to truly keep the database active
     // Supabase considers INSERT/UPDATE/DELETE as activity, not just SELECT
+    // Only using columns that exist in the schema: room_code, host_id, created_at
     const { data: insertData, error: insertError } = await supabase
       .from('game_rooms')
       .insert({
         room_code: keepAliveRoomCode,
         host_id: 'cron-keepalive',
-        status: 'keepalive',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        created_at: new Date().toISOString()
       })
       .select();
 
@@ -67,7 +66,7 @@ export default async function handler(req, res) {
     const { error: cleanupKeepAliveError } = await supabase
       .from('game_rooms')
       .delete()
-      .eq('status', 'keepalive');
+      .eq('host_id', 'cron-keepalive');
 
     if (cleanupKeepAliveError) {
       console.error('Error cleaning up old keep-alive rooms:', cleanupKeepAliveError);
@@ -115,10 +114,11 @@ async function cleanupOldRooms(supabase, maxAgeHours = 24) {
     const cutoffTime = Date.now() - (maxAgeHours * 60 * 60 * 1000);
     
     // First get count of old rooms (for logging purposes)
+    // Using created_at instead of updated_at (which doesn't exist in schema)
     const { count, error: countError } = await supabase
       .from('game_rooms')
       .select('*', { count: 'exact', head: true })
-      .lt('updated_at', new Date(cutoffTime).toISOString());
+      .lt('created_at', new Date(cutoffTime).toISOString());
     
     if (countError) {
       console.error('Error counting old rooms:', countError);
@@ -132,7 +132,7 @@ async function cleanupOldRooms(supabase, maxAgeHours = 24) {
       const { error } = await supabase
         .from('game_rooms')
         .delete()
-        .lt('updated_at', new Date(cutoffTime).toISOString());
+        .lt('created_at', new Date(cutoffTime).toISOString());
       
       if (error) {
         console.error('Error cleaning up old rooms:', error);
